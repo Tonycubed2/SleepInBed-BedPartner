@@ -19,13 +19,22 @@
 //                  else PickBed(other beds; the player's bed is never in that list)
 //
 //   Assign(actor, bed, slot, role)            RVA 0x27400  (undress, send to bed, track; slot may be null)
+//   SelectPackage(process, actor, force)      RVA 0x39EA0  (its detour on the game's package selection:
+//                                                           keeps the sleep package only once the follower
+//                                                           is lying down, sit/sleep state >= 5)
+//
+// Why followers like CHIM's Herika never arrive: while they WALK to the bed, every package re-evaluation
+// picks their quest alias follow package (Skyrim.esm 0005C84B, used by HerikaFollower and DialogueFollower),
+// which outranks the created sleep package. Sleep In Bed resends it every ~3 s, up to 5 times, then gives up.
 //
 // So the nearest follower always gets the free side. This patch:
 //   - after the sort, moves the followers that match the chosen rule to the front, in random order;
 //   - makes AllowedToUse say "no" for the player's bed to every follower that does not match;
 //   - watches the follower sent to the player's bed: when her own AI takes her sleep package away
 //     twice (Sleep In Bed keeps resending it), or she never starts it, the next matching follower is
-//     sent to the player's bed through Sleep In Bed's own Assign.
+//     sent to the player's bed through Sleep In Bed's own Assign;
+//   - while the player lies in bed, also keeps the sleep package of followers still walking to their bed
+//     (Sleep In Bed itself only does so once they lie down), so their follow package cannot take it back.
 // Nothing else in Sleep In Bed SKSE changes. The spouse is never touched.
 
 namespace Patch
@@ -38,10 +47,12 @@ namespace Patch
 		constexpr std::uintptr_t kRvaSortSleepers = 0x25450;
 		constexpr std::uintptr_t kRvaAllowedToUse = 0x27370;
 		constexpr std::uintptr_t kRvaAssign = 0x27400;
+		constexpr std::uintptr_t kRvaSelectPackage = 0x39EA0;
 
 		constexpr std::array<std::uint8_t, 16> kBytesLayFollowersDown{ 0x48, 0x8B, 0xC4, 0x89, 0x48, 0x08, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56 };
 		constexpr std::array<std::uint8_t, 16> kBytesSortSleepers{ 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18, 0x4C, 0x89, 0x48, 0x20, 0x48, 0x89, 0x50, 0x10, 0x55 };
 		constexpr std::array<std::uint8_t, 16> kBytesAllowedToUse{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
+		constexpr std::array<std::uint8_t, 16> kBytesSelectPackage{ 0x48, 0x89, 0x5C, 0x24, 0x10, 0x44, 0x88, 0x44, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x81, 0xEC };
 		constexpr std::array<std::uint8_t, 16> kBytesAssign{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18, 0x4C };
 
 		// Hand-over: losses of the sleep package before the next follower gets the bed,
@@ -56,11 +67,17 @@ namespace Patch
 		using SortSleepers_t = void (*)(RE::Actor** a_first, RE::Actor** a_last, std::int64_t a_ideal, void* a_pred);
 		using AllowedToUse_t = bool (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, bool a_childBed, RE::PlayerCharacter* a_player);
 		using Assign_t = void (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, void* a_slot, const char* a_role);
+		using SelectPackage_t = bool (*)(RE::AIProcess* a_process, RE::Actor* a_actor, bool a_force);
 
 		LayFollowersDown_t g_origLayFollowersDown = nullptr;
 		SortSleepers_t     g_origSortSleepers = nullptr;
 		AllowedToUse_t     g_origAllowedToUse = nullptr;
 		Assign_t           g_origAssign = nullptr;
+		SelectPackage_t    g_origSelectPackage = nullptr;
+
+		// Followers whose walk to bed was protected this bedtime (package selection can run on AI threads).
+		std::mutex                        g_walkLock;
+		std::unordered_set<RE::FormID>    g_walkLogged;
 
 		State g_state = State::kNotInstalled;
 
@@ -268,6 +285,10 @@ namespace Patch
 		void HookLayFollowersDown(std::uint32_t a_bedHandle)
 		{
 			ResetBedtime();
+			{
+				std::scoped_lock lock(g_walkLock);
+				g_walkLogged.clear();
+			}
 			RE::NiPointer<RE::TESObjectREFR> bed;
 			RE::TESObjectREFR::LookupByHandle(a_bedHandle, bed);
 			g_playerBed = bed.get();
@@ -343,6 +364,27 @@ namespace Patch
 			return g_origAllowedToUse(a_actor, a_bed, a_childBed, a_player);
 		}
 
+		bool HookSelectPackage(RE::AIProcess* a_process, RE::Actor* a_actor, bool a_force)
+		{
+			auto* package = a_process ? a_process->currentPackage.package : nullptr;
+			if (a_actor && !a_actor->IsPlayerRef() && package &&
+				package->packData.packType == RE::PACKAGE_TYPE::kSleep &&
+				package->packData.packFlags.any(RE::PACKAGE_DATA::GeneralFlag::kCreated) &&
+				a_actor->AsActorState()->GetSitSleepState() < RE::SIT_SLEEP_STATE::kWantToSleep &&
+				PlayerLyingInBed()) {
+				bool first = false;
+				{
+					std::scoped_lock lock(g_walkLock);
+					first = g_walkLogged.insert(a_actor->GetFormID()).second;
+				}
+				if (first) {
+					SKSE::log::info("[partner] {:08X} ({}) walking to bed: her sleep package is kept (force={})", a_actor->GetFormID(), NameOf(a_actor), a_force);
+				}
+				return false;
+			}
+			return g_origSelectPackage(a_process, a_actor, a_force);
+		}
+
 		void HookAssign(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, void* a_slot, const char* a_role)
 		{
 			if (g_inBedtime && a_bed && a_bed == g_playerBed && g_followers.contains(a_actor) && !g_assignedPartner) {
@@ -388,7 +430,8 @@ namespace Patch
 		const bool  bytesOk = BytesMatch(base, kRvaLayFollowersDown, kBytesLayFollowersDown, "LayFollowersDown") &
 		                     BytesMatch(base, kRvaSortSleepers, kBytesSortSleepers, "SortSleepers") &
 		                     BytesMatch(base, kRvaAllowedToUse, kBytesAllowedToUse, "AllowedToUse") &
-		                     BytesMatch(base, kRvaAssign, kBytesAssign, "Assign");
+		                     BytesMatch(base, kRvaAssign, kBytesAssign, "Assign") &
+		                     BytesMatch(base, kRvaSelectPackage, kBytesSelectPackage, "SelectPackage");
 		if (stamp != kSupportedTimeDateStamp || !bytesOk) {
 			g_state = State::kWrongVersion;
 			SKSE::log::warn("[patch] SleepInBedSKSE.dll build stamp {} is not Sleep In Bed SKSE 1.4 ({}). Nothing patched.", stamp, kSupportedTimeDateStamp);
@@ -404,7 +447,8 @@ namespace Patch
 		const bool created = Hook(base, kRvaLayFollowersDown, reinterpret_cast<void*>(&HookLayFollowersDown), reinterpret_cast<void**>(&g_origLayFollowersDown), "LayFollowersDown") &&
 		                     Hook(base, kRvaSortSleepers, reinterpret_cast<void*>(&HookSortSleepers), reinterpret_cast<void**>(&g_origSortSleepers), "SortSleepers") &&
 		                     Hook(base, kRvaAllowedToUse, reinterpret_cast<void*>(&HookAllowedToUse), reinterpret_cast<void**>(&g_origAllowedToUse), "AllowedToUse") &&
-		                     Hook(base, kRvaAssign, reinterpret_cast<void*>(&HookAssign), reinterpret_cast<void**>(&g_origAssign), "Assign");
+		                     Hook(base, kRvaAssign, reinterpret_cast<void*>(&HookAssign), reinterpret_cast<void**>(&g_origAssign), "Assign") &&
+		                     Hook(base, kRvaSelectPackage, reinterpret_cast<void*>(&HookSelectPackage), reinterpret_cast<void**>(&g_origSelectPackage), "SelectPackage");
 		if (!created || MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
 			MH_DisableHook(MH_ALL_HOOKS);
 			g_state = State::kHookFailed;
