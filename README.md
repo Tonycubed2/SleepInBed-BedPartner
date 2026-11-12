@@ -35,7 +35,12 @@ code bytes at each address:
 
 - the bedtime function that sends followers to bed (to know which bed you lie in);
 - the sort of nearby followers by distance (matching followers are moved to the front, in random order);
-- the "may this follower use this bed" check (answers no for your bed to followers that do not match).
+- the "may this follower use this bed" check (answers no for your bed to followers that do not match);
+- the "send this follower to this bed" function (to know who was sent to your bed, and to send the next one).
+
+Some followers' own AI takes Sleep In Bed's sleep package away again and again (seen with CHIM's Herika).
+The patch watches the follower sent to your bed: if she loses her sleep package twice, or never starts it,
+the next matching follower is sent to your bed instead.
 
 Log: `Documents\My Games\Skyrim Special Edition\SKSE\SleepInBedPartner.log`
 
