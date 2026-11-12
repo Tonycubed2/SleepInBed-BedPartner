@@ -42,6 +42,14 @@ namespace Menu
 			}
 			ui::SetItemTooltip("%s", "Which followers may lie down in the player's bed. Any follower: every follower qualifies. Opposite sex: only followers of the other sex than the player. Same sex: only followers of the player's sex. When more than one qualifies, one is picked at random each time; the others use other free beds nearby. A spouse who shares the bed is not affected.");
 			ui::TextWrapped("%s", "Works with \"Followers share the player's bed\" on the Settings page. With that option off, only the spouse shares your bed and this choice does nothing.");
+
+			ui::SeparatorText("Camera");
+			bool third = Settings::Get().thirdPersonInBed;
+			if (ui::Checkbox("Third person while in bed", &third)) {
+				Settings::Edit().thirdPersonInBed = third;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "While you lie in bed, the camera stays in third person, so you can look around the room. If anything switches it to first person, it is switched back (and SleepInBedPartner.log says when).");
 		}
 	}
 

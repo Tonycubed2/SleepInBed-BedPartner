@@ -15,6 +15,7 @@ namespace Settings
 	struct Values
 	{
 		std::int32_t bedPartner{ kPartnerAny };
+		bool         thirdPersonInBed{ false };
 	};
 
 	const Values& Get();

@@ -31,9 +31,10 @@ namespace Settings
 		}
 		Values loaded;
 		loaded.bedPartner = static_cast<std::int32_t>(ini.GetLongValue("BedPartner", "iBedPartner", loaded.bedPartner));
+		loaded.thirdPersonInBed = ini.GetBoolValue("Camera", "bThirdPersonInBed", loaded.thirdPersonInBed);
 		Sanitize(loaded);
 		g_values = loaded;
-		SKSE::log::info("[settings] bedPartner={}", PartnerName(g_values.bedPartner));
+		SKSE::log::info("[settings] bedPartner={} thirdPersonInBed={}", PartnerName(g_values.bedPartner), g_values.thirdPersonInBed);
 	}
 
 	void Save()
@@ -42,10 +43,11 @@ namespace Settings
 		ini.SetUnicode();
 		ini.LoadFile(kPath);
 		ini.SetLongValue("BedPartner", "iBedPartner", g_values.bedPartner, "; Who may share the player's bed (Sleep In Bed SKSE: \"Followers share the player's bed\" must be on).\n; 0 = any follower, 1 = opposite sex only, 2 = same sex only. Several qualify: one is picked at random.");
+		ini.SetBoolValue("Camera", "bThirdPersonInBed", g_values.thirdPersonInBed, "; 1 = while you lie in bed, the camera stays in third person (switched back if anything puts it in first person).");
 		if (ini.SaveFile(kPath) < 0) {
 			SKSE::log::warn("[settings] could not save {}", kPath);
 		} else {
-			SKSE::log::info("[settings] saved: bedPartner={}", PartnerName(g_values.bedPartner));
+			SKSE::log::info("[settings] saved: bedPartner={} thirdPersonInBed={}", PartnerName(g_values.bedPartner), g_values.thirdPersonInBed);
 		}
 	}
 

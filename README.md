@@ -18,8 +18,11 @@ When more than one follower qualifies, one is picked **at random** each time you
 Followers who are not picked, or do not qualify, go to other free beds nearby exactly as before.
 A spouse who shares your bed is not affected.
 
+**Third person while in bed** (optional, off by default): while you lie in bed the camera stays in third person,
+so you can look around the room. If anything switches it to first person, it is switched back and the log says when.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
-`Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex).
+`Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1).
 
 ## Requirements
 
