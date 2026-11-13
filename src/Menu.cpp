@@ -51,6 +51,17 @@ namespace Menu
 			}
 			ui::SetItemTooltip("%s", "When you lie down indoors, other NPCs in the room walk out and a follower closes the room door, then goes to bed. If the door is opened again while you are in bed, she gets up and closes it again.");
 
+			ui::SeparatorText("Sleepwear: keep on");
+			ui::TextWrapped("%s", "In sleepwear mode, Sleep In Bed takes off everything that is not sleepwear. Tick what should stay on.");
+			for (const auto& group : Settings::SlotGroups()) {
+				bool keep = (Settings::Get().keepSlots & group.mask) != 0;
+				if (ui::Checkbox(group.name, &keep)) {
+					auto& slots = Settings::Edit().keepSlots;
+					slots = keep ? (slots | group.mask) : (slots & ~group.mask);
+					Settings::Save();
+				}
+			}
+
 			ui::SeparatorText("After sleeping");
 			bool redressPlayer = Settings::Get().redressPlayer;
 			if (ui::Checkbox("Put my gear back on", &redressPlayer)) {

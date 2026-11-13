@@ -22,6 +22,7 @@ namespace Settings
 		bool         redressFollowers{ true };  // put followers' gear back on after sleeping
 		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
 		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
+		std::uint32_t keepSlots{ 0 };           // sleepwear mode: biped slots kept on (bit n = slot 30+n)
 	};
 
 	const Values& Get();
@@ -34,4 +35,12 @@ namespace Settings
 
 	// True when this actor's name is on the "not a follower" list.
 	bool IsNotFollower(RE::Actor* a_actor);
+
+	// Slot groups shown in the menu: name and biped slot mask (bit n = slot 30+n).
+	struct SlotGroup
+	{
+		const char*   name;
+		std::uint32_t mask;
+	};
+	const std::vector<SlotGroup>& SlotGroups();
 }

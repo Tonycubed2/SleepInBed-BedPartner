@@ -53,6 +53,7 @@ namespace Patch
 		constexpr std::uintptr_t kRvaDressNow = 0x4F8C0;      // Undress::DressNow(actorID, animate): the only re-dress path
 		constexpr std::uintptr_t kRvaPutOn = 0x51370;         // Undress::PutOn(actor, itemID, slot)
 		constexpr std::uintptr_t kRvaUnequip = 0x69870;       // ActorEquipManager::UnequipObject wrapper (sleepwear doff)
+		constexpr std::uintptr_t kRvaPartOfOutfit = 0x46500;        // Sleepwear::PartOfOutfit(actor, armor): sleepwear mode "keep this on?"
 		constexpr std::uintptr_t kRvaSendSleepPackage = 0x39FF0;    // SleepPackage::Send(actor, bed): every (re)send to bed
 		constexpr std::uintptr_t kRvaCanProcessSleepKey = 0x2ACC0;  // its MenuOpenHandler::CanProcess replacement
 		constexpr std::uintptr_t kRvaIsSleepKey = 0x2AF50;          // bool IsSleepKey(const ButtonEvent&)
@@ -67,6 +68,7 @@ namespace Patch
 		constexpr std::array<std::uint8_t, 16> kBytesUnequip{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
 		constexpr std::array<std::uint8_t, 16> kBytesCanProcessSleepKey{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0xF9 };
 		constexpr std::array<std::uint8_t, 16> kBytesIsSleepKey{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8, 0x9E, 0x79 };
+		constexpr std::array<std::uint8_t, 16> kBytesPartOfOutfit{ 0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0xDA, 0x48, 0x85, 0xC9, 0x74, 0x57, 0x48, 0x85 };
 		constexpr std::array<std::uint8_t, 16> kBytesSendSleepPackage{ 0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0xD9 };
 		constexpr std::array<std::uint8_t, 16> kBytesAssign{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18, 0x4C };
 
@@ -86,6 +88,7 @@ namespace Patch
 		using DressNow_t = void (*)(RE::FormID a_actorID, bool a_animate);
 		using CanProcess_t = bool (*)(RE::MenuOpenHandler* a_handler, RE::InputEvent* a_event);
 		using SendSleepPackage_t = bool (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed);
+		using PartOfOutfit_t = bool (*)(RE::Actor* a_actor, RE::TESObjectARMO* a_armor);
 		using IsSleepKey_t = bool (*)(const RE::ButtonEvent* a_event);
 		using PutOn_t = bool (*)(RE::Actor* a_actor, RE::FormID a_itemID, std::uint8_t a_slot);
 		using Unequip_t = bool (*)(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot, bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow, const RE::BGSEquipSlot* a_slotToReplace);
@@ -98,6 +101,7 @@ namespace Patch
 		DressNow_t         g_origDressNow = nullptr;
 		CanProcess_t       g_origCanProcessSleepKey = nullptr;
 		SendSleepPackage_t g_origSendSleepPackage = nullptr;
+		PartOfOutfit_t     g_origPartOfOutfit = nullptr;
 		IsSleepKey_t       g_isSleepKey = nullptr;
 		CanProcess_t*      g_vanillaCanProcess = nullptr;  // slot in SleepInBedSKSE.dll holding the game's function
 		PutOn_t            g_origPutOn = nullptr;
@@ -432,6 +436,20 @@ namespace Patch
 			return g_origAllowedToUse(a_actor, a_bed, a_childBed, a_player);
 		}
 
+		// Sleepwear mode keeps on only sleepwear pieces; items in the slots the player chose stay on too.
+		bool HookPartOfOutfit(RE::Actor* a_actor, RE::TESObjectARMO* a_armor)
+		{
+			if (g_origPartOfOutfit(a_actor, a_armor)) {
+				return true;
+			}
+			const auto keep = Settings::Get().keepSlots;
+			if (keep && a_armor && (a_armor->GetSlotMask().underlying() & keep) != 0) {
+				SKSE::log::info("[sleepwear] {:08X} ({}) keeps {:08X} ({}) on: slot chosen to stay on", a_actor ? a_actor->GetFormID() : 0, NameOf(a_actor), a_armor->GetFormID(), a_armor->GetName());
+				return true;
+			}
+			return false;
+		}
+
 		bool HookSendSleepPackage(RE::Actor* a_actor, RE::TESObjectREFR* a_bed)
 		{
 			if (Door::OnDuty(a_actor)) {
@@ -606,7 +624,8 @@ namespace Patch
 		                     BytesMatch(base, kRvaUnequip, kBytesUnequip, "Unequip") &
 		                     BytesMatch(base, kRvaCanProcessSleepKey, kBytesCanProcessSleepKey, "CanProcessWithSleepKey") &
 		                     BytesMatch(base, kRvaIsSleepKey, kBytesIsSleepKey, "IsSleepKey") &
-		                     BytesMatch(base, kRvaSendSleepPackage, kBytesSendSleepPackage, "SendSleepPackage");
+		                     BytesMatch(base, kRvaSendSleepPackage, kBytesSendSleepPackage, "SendSleepPackage") &
+		                     BytesMatch(base, kRvaPartOfOutfit, kBytesPartOfOutfit, "PartOfOutfit");
 		if (stamp != kSupportedTimeDateStamp || !bytesOk) {
 			g_state = State::kWrongVersion;
 			SKSE::log::warn("[patch] SleepInBedSKSE.dll build stamp {} is not Sleep In Bed SKSE 1.4 ({}). Nothing patched.", stamp, kSupportedTimeDateStamp);
@@ -631,7 +650,8 @@ namespace Patch
 		                     Hook(base, kRvaPutOn, reinterpret_cast<void*>(&HookPutOn), reinterpret_cast<void**>(&g_origPutOn), "PutOn") &&
 		                     Hook(base, kRvaUnequip, reinterpret_cast<void*>(&HookUnequip), reinterpret_cast<void**>(&g_origUnequip), "Unequip") &&
 		                     Hook(base, kRvaCanProcessSleepKey, reinterpret_cast<void*>(&HookCanProcessSleepKey), reinterpret_cast<void**>(&g_origCanProcessSleepKey), "CanProcessWithSleepKey") &&
-		                     Hook(base, kRvaSendSleepPackage, reinterpret_cast<void*>(&HookSendSleepPackage), reinterpret_cast<void**>(&g_origSendSleepPackage), "SendSleepPackage");
+		                     Hook(base, kRvaSendSleepPackage, reinterpret_cast<void*>(&HookSendSleepPackage), reinterpret_cast<void**>(&g_origSendSleepPackage), "SendSleepPackage") &&
+		                     Hook(base, kRvaPartOfOutfit, reinterpret_cast<void*>(&HookPartOfOutfit), reinterpret_cast<void**>(&g_origPartOfOutfit), "PartOfOutfit");
 		if (!created || MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
 			MH_DisableHook(MH_ALL_HOOKS);
 			g_state = State::kHookFailed;

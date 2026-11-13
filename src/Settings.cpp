@@ -36,6 +36,21 @@ namespace Settings
 		loaded.redressFollowers = ini.GetBoolValue("Dress", "bRedressFollowers", loaded.redressFollowers);
 		loaded.clearRoom = ini.GetBoolValue("Room", "bClearRoom", loaded.clearRoom);
 		{
+			std::string list = ini.GetValue("Sleepwear", "sKeepSlots", "");
+			std::string number;
+			for (char c : list + ",") {
+				if (std::isdigit(static_cast<unsigned char>(c))) {
+					number.push_back(c);
+				} else if (!number.empty()) {
+					const int slot = std::atoi(number.c_str());
+					if (slot >= 30 && slot <= 61) {
+						loaded.keepSlots |= 1u << (slot - 30);
+					}
+					number.clear();
+				}
+			}
+		}
+		{
 			std::string list = ini.GetValue("BedPartner", "sNotFollowers", "");
 			std::string name;
 			for (char c : list + ",") {
@@ -54,7 +69,7 @@ namespace Settings
 		}
 		Sanitize(loaded);
 		g_values = loaded;
-		SKSE::log::info("[settings] clearRoom={} notFollowers={}", g_values.clearRoom, g_values.notFollowers.size());
+		SKSE::log::info("[settings] clearRoom={} notFollowers={} keepSlots={:08X}", g_values.clearRoom, g_values.notFollowers.size(), g_values.keepSlots);
 		for (const auto& name : g_values.notFollowers) {
 			SKSE::log::info("[settings] not a follower: {}", name);
 		}
@@ -73,12 +88,40 @@ namespace Settings
 		if (!ini.GetValue("BedPartner", "sNotFollowers")) {
 			ini.SetValue("BedPartner", "sNotFollowers", "", "; Names (comma separated) of NPCs the game counts as your teammates but who are not your followers.\n; Sleep In Bed ignores them: never sent to bed, never chosen for your bed. Example: sNotFollowers=Vilja");
 		}
+		{
+			std::string slots;
+			for (int n = 0; n < 32; ++n) {
+				if (g_values.keepSlots & (1u << n)) {
+					slots += (slots.empty() ? "" : ",") + std::to_string(30 + n);
+				}
+			}
+			ini.SetValue("Sleepwear", "sKeepSlots", slots.c_str(), "; Sleepwear mode: equipment slots that stay on when the sleepwear is put on (comma separated slot numbers 30-61).\n; Empty = everything that is not sleepwear comes off (Sleep In Bed's normal behavior). Example: sKeepSlots=35,36 keeps amulets and rings.");
+		}
 		ini.SetBoolValue("Room", "bClearRoom", g_values.clearRoom, "; 1 = when you lie down indoors, other NPCs leave the room and a follower closes the door (and closes it again if it is opened while you are in bed).");
 		if (ini.SaveFile(kPath) < 0) {
 			SKSE::log::warn("[settings] could not save {}", kPath);
 		} else {
 			SKSE::log::info("[settings] saved: bedPartner={} thirdPersonInBed={} redressPlayer={} redressFollowers={}", PartnerName(g_values.bedPartner), g_values.thirdPersonInBed, g_values.redressPlayer, g_values.redressFollowers);
 		}
+	}
+
+	const std::vector<SlotGroup>& SlotGroups()
+	{
+		static const std::vector<SlotGroup> groups{
+			{ "Head (helmets, hoods)", (1u << 0) | (1u << 1) | (1u << 11) },  // 30 head, 31 hair, 41 long hair
+			{ "Body (armor, clothes)", 1u << 2 },                              // 32
+			{ "Hands (gloves, gauntlets)", 1u << 3 },                          // 33
+			{ "Forearms", 1u << 4 },                                           // 34
+			{ "Amulet", 1u << 5 },                                             // 35
+			{ "Rings", 1u << 6 },                                              // 36
+			{ "Feet (boots, shoes)", 1u << 7 },                                // 37
+			{ "Calves", 1u << 8 },                                             // 38
+			{ "Shield", 1u << 9 },                                             // 39
+			{ "Circlet", 1u << 12 },                                           // 42
+			{ "Ears", 1u << 13 },                                              // 43
+			{ "Mod slots 44-61 (capes, backpacks, jewelry...)", 0xFFFFC000u }, // 44-61
+		};
+		return groups;
 	}
 
 	bool IsNotFollower(RE::Actor* a_actor)
