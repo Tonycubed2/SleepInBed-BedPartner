@@ -20,6 +20,7 @@ namespace Settings
 		bool         thirdPersonInBed{ false };
 		bool         redressPlayer{ true };     // put the player's gear back on after sleeping
 		bool         redressFollowers{ true };  // put followers' gear back on after sleeping
+		std::int32_t redressDelay{ 0 };         // game minutes to stay in sleepwear before the gear goes back on (0 = at once)
 		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
 		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
 		std::uint32_t keepSlots{ 0 };           // sleepwear mode: biped slots kept on (bit n = slot 30+n)

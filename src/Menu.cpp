@@ -75,6 +75,12 @@ namespace Menu
 				Settings::Save();
 			}
 			ui::SetItemTooltip("%s", "On: when followers get up, Sleep In Bed puts their gear back on (normal behavior). Off: they stay as they are.");
+			int delay = Settings::Get().redressDelay;
+			if (ui::SliderInt("Wait before dressing (game minutes)", &delay, 0, 240)) {
+				Settings::Edit().redressDelay = delay;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "0 = gear goes back on as soon as you get up (normal behavior). Otherwise everyone stays in sleepwear for this many game minutes first. In combat, or if anyone dresses themselves meanwhile, it is handled at once.");
 
 			if (REL::Module::IsVR()) {
 				return;

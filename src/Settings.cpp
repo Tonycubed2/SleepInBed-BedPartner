@@ -34,6 +34,7 @@ namespace Settings
 		loaded.thirdPersonInBed = ini.GetBoolValue("Camera", "bThirdPersonInBed", loaded.thirdPersonInBed);
 		loaded.redressPlayer = ini.GetBoolValue("Dress", "bRedressPlayer", loaded.redressPlayer);
 		loaded.redressFollowers = ini.GetBoolValue("Dress", "bRedressFollowers", loaded.redressFollowers);
+		loaded.redressDelay = std::clamp(static_cast<std::int32_t>(ini.GetLongValue("Dress", "iRedressDelay", loaded.redressDelay)), 0, 240);
 		loaded.clearRoom = ini.GetBoolValue("Room", "bClearRoom", loaded.clearRoom);
 		{
 			std::string list = ini.GetValue("Sleepwear", "sKeepSlots", "");
@@ -69,7 +70,7 @@ namespace Settings
 		}
 		Sanitize(loaded);
 		g_values = loaded;
-		SKSE::log::info("[settings] clearRoom={} notFollowers={} keepSlots={:08X}", g_values.clearRoom, g_values.notFollowers.size(), g_values.keepSlots);
+		SKSE::log::info("[settings] clearRoom={} notFollowers={} keepSlots={:08X} redressDelay={} min", g_values.clearRoom, g_values.notFollowers.size(), g_values.keepSlots, g_values.redressDelay);
 		for (const auto& name : g_values.notFollowers) {
 			SKSE::log::info("[settings] not a follower: {}", name);
 		}
@@ -97,6 +98,7 @@ namespace Settings
 			}
 			ini.SetValue("Sleepwear", "sKeepSlots", slots.c_str(), "; Sleepwear mode: equipment slots that stay on when the sleepwear is put on (comma separated slot numbers 30-61).\n; Empty = everything that is not sleepwear comes off (Sleep In Bed's normal behavior). Example: sKeepSlots=35,36 keeps amulets and rings.");
 		}
+		ini.SetLongValue("Dress", "iRedressDelay", g_values.redressDelay, "; Game minutes to stay in sleepwear after getting up before the gear goes back on (0 = at once, Sleep In Bed's normal behavior; max 240).\n; In combat, or if the player is attacked, the gear goes back on at once.");
 		ini.SetBoolValue("Room", "bClearRoom", g_values.clearRoom, "; 1 = when you lie down indoors, other NPCs leave the room and a follower closes the door (and closes it again if it is opened while you are in bed).");
 		if (ini.SaveFile(kPath) < 0) {
 			SKSE::log::warn("[settings] could not save {}", kPath);

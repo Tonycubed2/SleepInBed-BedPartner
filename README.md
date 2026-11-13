@@ -47,6 +47,10 @@ when you get up.
 leave the room like other NPCs. Once they become real followers, they count again. Extra names can be listed
 in `sNotFollowers` (comma separated).
 
+**Wait before dressing** (0 by default = Sleep In Bed's normal behavior): game minutes everyone stays in their
+sleepwear after getting up before the gear goes back on. In combat it goes back on at once; anyone who dressed
+themselves meanwhile is left as they are; loading a save dresses whoever is still waiting. INI: `[Dress] iRedressDelay`.
+
 **Sleepwear: keep on** (all off by default = Sleep In Bed's normal behavior): in sleepwear mode Sleep In Bed
 takes off everything that is not sleepwear. Tick the slots that should stay on (head, body, hands, forearms,
 amulet, rings, feet, calves, shield, circlet, ears, mod slots 44-61). INI: `[Sleepwear] sKeepSlots` (slot numbers).

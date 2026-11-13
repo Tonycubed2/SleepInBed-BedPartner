@@ -110,6 +110,17 @@ namespace Patch
 		// True while DressNow runs for someone who must stay as they are: nothing is put on or taken off.
 		thread_local bool g_keepAsIs = false;
 
+		// "Wait before dressing": who is waiting, until when (game hours), and what they wore at wake-up.
+		struct DelayedDress
+		{
+			float                    dueHours{ 0.0f };
+			bool                     animate{ true };
+			std::vector<RE::FormID>  worn;
+		};
+		std::unordered_map<RE::FormID, DelayedDress> g_delayed;  // main thread only
+		std::atomic<bool>                            g_delayTickQueued{ false };
+		std::atomic<bool>                            g_delayActive{ false };
+
 		// Followers whose walk to bed was protected this bedtime (package selection can run on AI threads).
 		std::mutex                        g_walkLock;
 		std::unordered_set<RE::FormID>    g_walkLogged;
@@ -532,11 +543,101 @@ namespace Patch
 			return g_origCanProcessSleepKey(a_handler, a_event);
 		}
 
+		std::vector<RE::FormID> WornArmor(RE::Actor* a_actor)
+		{
+			std::vector<RE::FormID> worn;
+			for (int n = 0; n < 32; ++n) {
+				auto* armor = a_actor->GetWornArmor(static_cast<RE::BGSBipedObjectForm::BipedObjectSlot>(1u << n));
+				if (armor && std::find(worn.begin(), worn.end(), armor->GetFormID()) == worn.end()) {
+					worn.push_back(armor->GetFormID());
+				}
+			}
+			std::sort(worn.begin(), worn.end());
+			return worn;
+		}
+
+		bool Danger(RE::Actor* a_actor)
+		{
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			return (a_actor && a_actor->IsInCombat()) || (player && player->IsInCombat());
+		}
+
+		float GameHours()
+		{
+			auto* calendar = RE::Calendar::GetSingleton();
+			return calendar ? calendar->GetHoursPassed() : 0.0f;
+		}
+
+		void KeepAsIs(RE::FormID a_actorID)
+		{
+			g_keepAsIs = true;
+			g_origDressNow(a_actorID, false);
+			g_keepAsIs = false;
+		}
+
+		void DelayTick()
+		{
+			g_delayTickQueued = false;
+			const float now = GameHours();
+			for (auto it = g_delayed.begin(); it != g_delayed.end();) {
+				const auto id = it->first;
+				auto*      actor = RE::TESForm::LookupByID<RE::Actor>(id);
+				if (!actor || actor->IsDead()) {
+					it = g_delayed.erase(it);
+					continue;
+				}
+				const bool danger = Danger(actor);
+				if (!danger && now < it->second.dueHours) {
+					++it;
+					continue;
+				}
+				const auto entry = it->second;
+				it = g_delayed.erase(it);
+				if (!danger && WornArmor(actor) != entry.worn) {
+					SKSE::log::info("[dress] {:08X} ({}) changed clothes while waiting: stays as is", id, NameOf(actor));
+					KeepAsIs(id);
+				} else {
+					SKSE::log::info("[dress] {:08X} ({}) {}: gear goes back on", id, NameOf(actor), danger ? "combat" : "waited long enough");
+					g_origDressNow(id, entry.animate && !danger);
+				}
+			}
+			g_delayActive = !g_delayed.empty();
+		}
+
+		void DelayThread()
+		{
+			for (;;) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				if (!g_delayActive || g_delayTickQueued.exchange(true)) {
+					continue;
+				}
+				if (auto* tasks = SKSE::GetTaskInterface()) {
+					tasks->AddTask([] { DelayTick(); });
+				} else {
+					g_delayTickQueued = false;
+				}
+			}
+		}
+
 		void HookDressNow(RE::FormID a_actorID, bool a_animate)
 		{
 			const bool player = a_actorID == 0x14;
 			const bool redress = player ? Settings::Get().redressPlayer : Settings::Get().redressFollowers;
 			if (redress) {
+				const auto delay = Settings::Get().redressDelay;
+				auto*      actor = RE::TESForm::LookupByID<RE::Actor>(a_actorID);
+				if (auto found = g_delayed.find(a_actorID); found != g_delayed.end()) {
+					// Sleep In Bed asks again while the wait is running: the wait decides.
+					if (!Danger(actor) && GameHours() < found->second.dueHours) {
+						return;
+					}
+					g_delayed.erase(found);
+				} else if (delay > 0 && actor && !Danger(actor) && actor->AsActorState()->GetSitSleepState() != RE::SIT_SLEEP_STATE::kIsSleeping) {
+					g_delayed[a_actorID] = DelayedDress{ GameHours() + static_cast<float>(delay) / 60.0f, a_animate, WornArmor(actor) };
+					g_delayActive = true;
+					SKSE::log::info("[dress] {:08X} ({}) got up: stays in sleepwear for {} game minutes", a_actorID, NameOf(actor), delay);
+					return;
+				}
 				g_origDressNow(a_actorID, a_animate);
 				return;
 			}
@@ -660,12 +761,21 @@ namespace Patch
 		}
 		g_state = State::kActive;
 		std::thread(WatchThread).detach();
+		std::thread(DelayThread).detach();
 		SKSE::log::info("[patch] Sleep In Bed SKSE 1.4 patched (module at {:X})", base);
 	}
 
 	State GetState()
 	{
 		return g_state;
+	}
+
+	void OnLoadingGame()
+	{
+		// A save is being loaded: Sleep In Bed dresses whoever is still undressed right after the load.
+		// SKSE messages arrive on the game's main thread, like every use of g_delayed.
+		g_delayed.clear();
+		g_delayActive = false;
 	}
 
 	void SendToBed(RE::Actor* a_actor, RE::TESObjectREFR* a_bed)
