@@ -95,6 +95,7 @@ Result: `build\Release\SleepInBedPartner.dll`
 
 ## Credits and license
 
-- Sleep In Bed SKSE by Elzar125 (GPL-3.0, open permissions)
-- SKSE Menu Framework header (MIT, see THIRD-PARTY-SKSEMenuFramework-LICENSE.txt)
-- This patch: GPL-3.0 (see LICENSE)
+- Sleep In Bed SKSE by Elzar125 (GPL-3.0, open permissions). No code of it is distributed here; the patch hooks its DLL at runtime.
+- This patch: GPL-3.0-or-later (see LICENSE) with the CommonLibSSE NG Modding Exception and GPL-3.0 Linking Exception (see CommonLibSSE-NG-EXCEPTIONS.txt).
+- SleepInBedPartner.dll statically links CommonLibSSE NG 16.2.0 (https://github.com/alandtse/CommonLibSSE-NG), GPL-3.0-or-later with the same exceptions. Corresponding source: this repository at the release tag plus CommonLibSSE NG 16.2.0.
+- Other libraries (SKSE Menu Framework header, MinHook, SimpleIni, spdlog, {fmt}, DirectXTK, Xbyak) with their licenses: THIRD-PARTY-NOTICES.txt.
