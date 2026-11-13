@@ -374,6 +374,17 @@ namespace Patch
 					continue;
 				}
 				g_followers.insert(actor);
+				{
+					// Diagnostics: what tells a real follower from an NPC some mod only flags as teammate.
+					static auto* currentFollower = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
+					auto*        process = actor->GetActorRuntimeData().currentProcess;
+					auto*        package = process ? process->currentPackage.package : nullptr;
+					SKSE::log::info("[partner] teammate {:08X} ({}): CurrentFollowerFaction rank {} | package {:08X} type {} | following player {}", actor->GetFormID(), NameOf(actor), currentFollower ? actor->GetFactionRank(currentFollower, false) : -9, package ? package->GetFormID() : 0, package ? static_cast<std::int32_t>(package->packData.packType.get()) : -1, package && package->packData.packType == RE::PACKAGE_TYPE::kFollow);
+				}
+				if (Settings::IsNotFollower(actor)) {
+					rest.push_back(actor);
+					continue;
+				}
 				if (Matches(actor, player, rule)) {
 					matching.push_back(actor);
 				} else {
@@ -538,6 +549,10 @@ namespace Patch
 
 		void HookAssign(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, void* a_slot, const char* a_role)
 		{
+			if (g_inBedtime && Settings::IsNotFollower(a_actor)) {
+				SKSE::log::info("[partner] {:08X} ({}) is a teammate but not a follower: not sent to bed", a_actor->GetFormID(), NameOf(a_actor));
+				return;
+			}
 			if (g_inBedtime && a_bed && a_bed == g_playerBed && g_followers.contains(a_actor) && !g_assignedPartner) {
 				g_assignedPartner = a_actor;
 			}

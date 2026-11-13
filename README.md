@@ -41,6 +41,12 @@ out, then a follower (your bed partner, else another follower going to bed) walk
 to bed. If the door is opened again while you are in bed, she gets up and closes it again. Everything is released
 when you get up.
 
+**Teammates who are not followers:** some mods flag an NPC as your teammate before they really follow you
+(Vilja before her quest is accepted). A teammate who is not a member of the game's follower faction
+(CurrentFollowerFaction) is ignored: never sent to bed, never chosen for your bed; with "Clear the room" they
+leave the room like other NPCs. Once they become real followers, they count again. Extra names can be listed
+in `sNotFollowers` (comma separated).
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
 `Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 

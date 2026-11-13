@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace Settings
 {
@@ -19,6 +21,7 @@ namespace Settings
 		bool         redressPlayer{ true };     // put the player's gear back on after sleeping
 		bool         redressFollowers{ true };  // put followers' gear back on after sleeping
 		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
+		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
 	};
 
 	const Values& Get();
@@ -28,4 +31,7 @@ namespace Settings
 	void Save();
 
 	const char* PartnerName(std::int32_t rule);
+
+	// True when this actor's name is on the "not a follower" list.
+	bool IsNotFollower(RE::Actor* a_actor);
 }

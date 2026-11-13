@@ -16,13 +16,15 @@
 
 namespace Door
 {
+	bool OnDuty(RE::Actor* a_actor);
+
 	namespace
 	{
 		using Clock = std::chrono::steady_clock;
 
 		constexpr float         kDoorSearchRadius = 1000.0f;  // door must be this close to the bed
 		constexpr float         kRoomRadius = 1100.0f;        // NPCs this close to the bed can be "in the room"
-		constexpr float         kSameFloor = 250.0f;          // height difference still counted as the same floor
+		constexpr float         kSameFloor = 120.0f;          // height difference still counted as the same floor (a storey is ~256)
 		constexpr float         kOutsideDistance = 220.0f;    // where leavers go, beyond the door
 		constexpr float         kInsideDistance = 90.0f;      // where the closer stands, in front of the door
 		constexpr float         kAtDoor = 170.0f;             // close enough to close it
@@ -39,6 +41,7 @@ namespace Door
 			kIdle,
 			kWaitLeavers,
 			kGoingToDoor,
+			kClosing,
 			kGuard,
 		};
 
@@ -212,7 +215,7 @@ namespace Door
 			tes->ForEachReferenceInRange(a_bed, kRoomRadius, [&](RE::TESObjectREFR* a_ref) {
 				auto* actor = a_ref ? a_ref->As<RE::Actor>() : nullptr;
 				if (!actor || actor->IsPlayerRef() || actor->IsDead() || actor->IsDisabled() || !actor->Is3DLoaded() ||
-					actor->IsPlayerTeammate() || actor->IsInCombat() || g_state.excluded.contains(actor->GetFormID()) || !InRoom(actor)) {
+					(actor->IsPlayerTeammate() && !Settings::IsNotFollower(actor)) || actor->IsInCombat() || g_state.excluded.contains(actor->GetFormID()) || !InRoom(actor)) {
 					return RE::BSContainer::ForEachResult::kContinue;
 				}
 				for (auto& handle : g_state.leavers) {
@@ -243,12 +246,43 @@ namespace Door
 			return true;
 		}
 
-		void CloseDoor(RE::TESObjectREFR* a_door, RE::Actor* a_by)
+		const char* OpenStateName(RE::TESObjectREFR* a_door)
+		{
+			switch (RE::BGSOpenCloseForm::GetOpenState(a_door)) {
+			case RE::BGSOpenCloseForm::OPEN_STATE::kOpen:
+				return "open";
+			case RE::BGSOpenCloseForm::OPEN_STATE::kOpening:
+				return "opening";
+			case RE::BGSOpenCloseForm::OPEN_STATE::kClosed:
+				return "closed";
+			case RE::BGSOpenCloseForm::OPEN_STATE::kClosing:
+				return "closing";
+			default:
+				return "none";
+			}
+		}
+
+		// The closer uses the door like anyone opening or closing it (door animation, sound).
+		void ActivateDoor(RE::TESObjectREFR* a_door, RE::Actor* a_by)
+		{
+			++g_state.closes;
+			if (a_by) {
+				a_door->ActivateRef(a_by, 0, nullptr, 1, false);
+				SKSE::log::info("[room] {:08X} ({}) closes door {:08X} ({} -> {}) ({}/{})", a_by->GetFormID(), NameOf(a_by), a_door->GetFormID(), "open", OpenStateName(a_door), g_state.closes, kMaxCloses);
+			} else {
+				RE::BGSOpenCloseForm::SetOpenState(a_door, false, true);
+				SKSE::log::info("[room] door {:08X} closed by the patch: now {} ({}/{})", a_door->GetFormID(), OpenStateName(a_door), g_state.closes, kMaxCloses);
+			}
+		}
+
+		// Called a moment after ActivateDoor: if the door is still open, it is shut directly.
+		void MakeSureClosed(RE::TESObjectREFR* a_door)
 		{
 			if (DoorOpen(a_door)) {
-				RE::BGSOpenCloseForm::SetOpenState(a_door, false, false);
-				++g_state.closes;
-				SKSE::log::info("[room] door {:08X} closed by {} ({}/{})", a_door->GetFormID(), a_by ? NameOf(a_by) : "the patch", g_state.closes, kMaxCloses);
+				RE::BGSOpenCloseForm::SetOpenState(a_door, false, true);
+				SKSE::log::info("[room] door {:08X} still open after being used: shut directly, now {}", a_door->GetFormID(), OpenStateName(a_door));
+			} else {
+				SKSE::log::info("[room] door {:08X} is {}", a_door->GetFormID(), OpenStateName(a_door));
 			}
 		}
 
@@ -286,8 +320,8 @@ namespace Door
 				Manage(closer, false);
 				SetDuty(nullptr);
 			}
-			CloseDoor(a_door, nullptr);
-			SetPhase(Phase::kGuard);
+			ActivateDoor(a_door, nullptr);
+			SetPhase(Phase::kClosing);
 		}
 
 		void Stop(const char* a_why)
@@ -349,10 +383,21 @@ namespace Door
 						if (closer && !arrived) {
 							SKSE::log::info("[room] {:08X} ({}) did not reach the door in {:.0f} s; closing it anyway", closer->GetFormID(), NameOf(closer), kDoorTimeout);
 						}
-						CloseDoor(door, closer);
-						FinishDuty(closer);
-						SetPhase(Phase::kGuard);
+						if (DoorOpen(door)) {
+							ActivateDoor(door, closer);
+						}
+						SetPhase(Phase::kClosing);
 					}
+				}
+				break;
+			case Phase::kClosing:
+				if (Seconds(g_state.phaseStart) > 1.5f) {
+					MakeSureClosed(door);
+					auto closerPtr = g_state.closer.get();
+					if (OnDuty(closerPtr.get())) {
+						FinishDuty(closerPtr.get());
+					}
+					SetPhase(Phase::kGuard);
 				}
 				break;
 			case Phase::kGuard:
@@ -401,14 +446,19 @@ namespace Door
 		const auto           bedPos = a_playerBed->GetPosition();
 		RE::TESObjectREFR*   door = nullptr;
 		float                best = kDoorSearchRadius;
-		tes->ForEachReferenceInRange(a_playerBed, kDoorSearchRadius, [&](RE::TESObjectREFR* a_ref) {
-			if (IsOrdinaryDoor(a_ref) && a_ref->GetParentCell() == cell) {
-				const auto pos = a_ref->GetPosition();
-				const float distance = pos.GetDistance(bedPos);
-				if (std::abs(pos.z - bedPos.z) <= kSameFloor + 100.0f && distance < best) {
-					best = distance;
-					door = a_ref;
-				}
+		tes->ForEachReferenceInRange(a_playerBed, kDoorSearchRadius + 1000.0f, [&](RE::TESObjectREFR* a_ref) {
+			auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+			if (!base || !base->Is(RE::FormType::Door) || a_ref->GetParentCell() != cell) {
+				return RE::BSContainer::ForEachResult::kContinue;
+			}
+			const auto  pos = a_ref->GetPosition();
+			const float distance = pos.GetDistance(bedPos);
+			const float dz = pos.z - bedPos.z;
+			const bool  ordinary = IsOrdinaryDoor(a_ref);
+			SKSE::log::info("[room] door candidate {:08X} (base {:08X}): {:.0f} units, height {:+.0f}, {}, {}", a_ref->GetFormID(), base->GetFormID(), distance, dz, ordinary ? "room door" : "load door/disabled", OpenStateName(a_ref));
+			if (ordinary && std::abs(dz) <= kSameFloor && distance < best) {
+				best = distance;
+				door = a_ref;
 			}
 			return RE::BSContainer::ForEachResult::kContinue;
 		});
