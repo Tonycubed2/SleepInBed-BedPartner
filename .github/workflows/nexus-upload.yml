@@ -1,0 +1,104 @@
+name: Upload to Nexus Mods
+
+# Manual release: Actions tab -> "Upload to Nexus Mods" -> Run workflow.
+# Nothing is built here. The zip is the one Tony built on his PC, committed as
+# dist/SleepInBedPartner-<version>.zip. This workflow:
+#   1. checks the zip holds the DLL, the INI and the GPL text,
+#   2. creates the GitHub release v<version> (pre-release) with the zip attached, unless it exists,
+#   3. uploads the zip to Nexus as a new version of the main file, with the changelog.
+#
+# Needs, in the "nexus" environment (Settings -> Environments -> nexus):
+#   secret   NEXUSMODS_API_KEY  - personal API key from nexusmods.com/settings/api-keys
+#   variable NEXUSMODS_FILE_ID  - required; "File ID" of the main file (Files tab -> Advanced -> API)
+#   variable NEXUSMODS_MOD_ID   - required; "Unique Mod ID" (same dialog)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g. 1.4.0): uploads dist/SleepInBedPartner-<version>.zip, release tag v<version>"
+        required: true
+      changelog:
+        description: "Changelog text (plain text; use ' | ' to separate lines)"
+        required: false
+        default: ""
+      display_name:
+        description: "File name shown on Nexus"
+        required: false
+        default: "Sleep In Bed SKSE - Bed Partner"
+      prerelease:
+        description: "Mark the GitHub release as a pre-release (beta)"
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    environment: nexus
+    steps:
+      - name: Check settings
+        env:
+          HAS_KEY: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
+
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Make sure the zip is there and complete
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          zip="dist/SleepInBedPartner-$VERSION.zip"
+          if [ ! -f "$zip" ]; then echo "::error::$zip is not in the repository"; exit 1; fi
+          unzip -l "$zip"
+          for f in SKSE/Plugins/SleepInBedPartner.dll SKSE/Plugins/SleepInBedPartner.ini SleepInBedPartner_GPL-3.0.txt SleepInBedPartner_CommonLibSSE-NG-EXCEPTIONS.txt; do
+            if ! unzip -l "$zip" "$f" > /dev/null; then echo "::error::MISSING $f in $zip - not uploading"; exit 1; fi
+          done
+          cp "$zip" SleepInBedPartner.zip
+
+      - name: Format changelog
+        id: log
+        env:
+          TEXT: ${{ inputs.changelog }}
+        run: |
+          {
+            echo "text<<CHANGELOG_EOF"
+            printf '%s\n' "$TEXT" | sed 's/ | /\n/g'
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub release (source tag for the GPL notice)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ steps.log.outputs.text }}
+          PRE: ${{ inputs.prerelease }}
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists, leaving it as it is"
+          else
+            flag=""
+            if [ "$PRE" = "true" ]; then flag="--prerelease"; fi
+            printf '%s\n' "${NOTES:-Sleep In Bed SKSE - Bed Partner $VERSION}" > notes.txt
+            gh release create "$tag" "dist/SleepInBedPartner-$VERSION.zip" --target "$GITHUB_SHA" --title "Sleep In Bed SKSE - Bed Partner $VERSION" --notes-file notes.txt $flag
+          fi
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ vars.NEXUSMODS_FILE_ID }}
+          filename: SleepInBedPartner.zip
+          display_name: ${{ inputs.display_name }}
+          version: ${{ inputs.version }}
+          mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
+          changelog: ${{ steps.log.outputs.text }}
+          update_mod_version: true
