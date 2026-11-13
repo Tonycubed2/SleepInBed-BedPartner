@@ -28,7 +28,7 @@ jobs:
       - name: Post changelog
         env:
           KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID }}
+          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || '7318624471326' }}
           VERSION: ${{ inputs.version }}
           TEXT: ${{ inputs.changelog }}
         run: |

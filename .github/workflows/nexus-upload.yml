@@ -95,10 +95,10 @@ jobs:
         uses: Nexus-Mods/upload-action@main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_id: ${{ vars.NEXUSMODS_FILE_ID }}
+          file_id: ${{ vars.NEXUSMODS_FILE_ID || '8373663' }}
           filename: SleepInBedPartner.zip
           display_name: ${{ inputs.display_name }}
           version: ${{ inputs.version }}
-          mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
+          mod_id: ${{ vars.NEXUSMODS_MOD_ID || '7318624471326' }}
           changelog: ${{ steps.log.outputs.text }}
           update_mod_version: true
