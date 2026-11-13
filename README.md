@@ -21,12 +21,33 @@ A spouse who shares your bed is not affected.
 **Third person while in bed** (optional, off by default): while you lie in bed the camera stays in third person,
 so you can look around the room. If anything switches it to first person, it is switched back and the log says when.
 
+**After sleeping** (both on by default = Sleep In Bed's normal behavior): "Put my gear back on" and
+"Put followers' gear back on". Turn one off and that person stays as they are when they get up
+(in sleepwear or undressed); Sleep In Bed still forgets the gear it took off, so the next bedtime works as usual.
+
+**Menu key fix:** Sleep In Bed 1.4 claims its sleep key (by default the Wait key / controller Back button)
+everywhere, so in unpaused inventory, magic or favorites menus that button opened the Wait menu instead of
+switching menus. With this patch the key is only claimed when Sleep In Bed uses it (lying in bed, or a jail
+sentence to serve, with no menu open); everywhere else the game's own handling applies.
+
+**Eyes stay closed after sleeping (fixed):** Sleep In Bed 1.4 reopens the eyes once, at the moment the
+sleeper starts getting up, and never checks again. If the eyes close again during the get-up animation they
+stay closed until a reload. The patch watches you and the followers who slept while getting up and for 8 s
+after standing; eyes still fully closed for longer than a blink are opened again (logged).
+
+**Clear the room and close the door** (optional, off by default; like the old Go To Bed addon): when you lie
+down indoors, the nearest ordinary door to your bed is taken as the room door. Other NPCs on your side of it walk
+out, then a follower (your bed partner, else another follower going to bed) walks to the door, closes it and goes
+to bed. If the door is opened again while you are in bed, she gets up and closes it again. Everything is released
+when you get up.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
-`Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1).
+`Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 
 ## Requirements
 
-- Skyrim SE / AE with SKSE and Address Library
+- Skyrim SE / AE / VR with SKSE (SKSEVR for VR) and Address Library (VR Address Library for VR).
+  One DLL for all three. In VR the "Third person while in bed" option is not available.
 - **Sleep In Bed SKSE 1.4** (Nexus 189803): this exact version. On any other version the patch changes nothing,
   logs why, and the menu page says so.
 - SKSE Menu Framework (optional, for the menu page)

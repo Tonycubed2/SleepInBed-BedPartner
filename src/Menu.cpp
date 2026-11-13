@@ -43,6 +43,31 @@ namespace Menu
 			ui::SetItemTooltip("%s", "Which followers may lie down in the player's bed. Any follower: every follower qualifies. Opposite sex: only followers of the other sex than the player. Same sex: only followers of the player's sex. When more than one qualifies, one is picked at random each time; the others use other free beds nearby. A spouse who shares the bed is not affected.");
 			ui::TextWrapped("%s", "Works with \"Followers share the player's bed\" on the Settings page. With that option off, only the spouse shares your bed and this choice does nothing.");
 
+			ui::SeparatorText("Room");
+			bool clearRoom = Settings::Get().clearRoom;
+			if (ui::Checkbox("Clear the room and close the door", &clearRoom)) {
+				Settings::Edit().clearRoom = clearRoom;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "When you lie down indoors, other NPCs in the room walk out and a follower closes the room door, then goes to bed. If the door is opened again while you are in bed, she gets up and closes it again.");
+
+			ui::SeparatorText("After sleeping");
+			bool redressPlayer = Settings::Get().redressPlayer;
+			if (ui::Checkbox("Put my gear back on", &redressPlayer)) {
+				Settings::Edit().redressPlayer = redressPlayer;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "On: when you get up, Sleep In Bed puts back the gear it took off (normal behavior). Off: you stay as you are, in sleepwear or undressed, and equip things yourself.");
+			bool redressFollowers = Settings::Get().redressFollowers;
+			if (ui::Checkbox("Put followers' gear back on", &redressFollowers)) {
+				Settings::Edit().redressFollowers = redressFollowers;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "On: when followers get up, Sleep In Bed puts their gear back on (normal behavior). Off: they stay as they are.");
+
+			if (REL::Module::IsVR()) {
+				return;
+			}
 			ui::SeparatorText("Camera");
 			bool third = Settings::Get().thirdPersonInBed;
 			if (ui::Checkbox("Third person while in bed", &third)) {

@@ -2,6 +2,8 @@
 
 #include "Patch.h"
 
+#include "Door.h"
+#include "Eyes.h"
 #include "Settings.h"
 
 #include <MinHook.h>
@@ -48,11 +50,24 @@ namespace Patch
 		constexpr std::uintptr_t kRvaAllowedToUse = 0x27370;
 		constexpr std::uintptr_t kRvaAssign = 0x27400;
 		constexpr std::uintptr_t kRvaSelectPackage = 0x39EA0;
+		constexpr std::uintptr_t kRvaDressNow = 0x4F8C0;      // Undress::DressNow(actorID, animate): the only re-dress path
+		constexpr std::uintptr_t kRvaPutOn = 0x51370;         // Undress::PutOn(actor, itemID, slot)
+		constexpr std::uintptr_t kRvaUnequip = 0x69870;       // ActorEquipManager::UnequipObject wrapper (sleepwear doff)
+		constexpr std::uintptr_t kRvaSendSleepPackage = 0x39FF0;    // SleepPackage::Send(actor, bed): every (re)send to bed
+		constexpr std::uintptr_t kRvaCanProcessSleepKey = 0x2ACC0;  // its MenuOpenHandler::CanProcess replacement
+		constexpr std::uintptr_t kRvaIsSleepKey = 0x2AF50;          // bool IsSleepKey(const ButtonEvent&)
+		constexpr std::uintptr_t kRvaVanillaCanProcess = 0x11A268;  // where it keeps the game's own CanProcess
 
 		constexpr std::array<std::uint8_t, 16> kBytesLayFollowersDown{ 0x48, 0x8B, 0xC4, 0x89, 0x48, 0x08, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56 };
 		constexpr std::array<std::uint8_t, 16> kBytesSortSleepers{ 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18, 0x4C, 0x89, 0x48, 0x20, 0x48, 0x89, 0x50, 0x10, 0x55 };
 		constexpr std::array<std::uint8_t, 16> kBytesAllowedToUse{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
 		constexpr std::array<std::uint8_t, 16> kBytesSelectPackage{ 0x48, 0x89, 0x5C, 0x24, 0x10, 0x44, 0x88, 0x44, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x81, 0xEC };
+		constexpr std::array<std::uint8_t, 16> kBytesDressNow{ 0x88, 0x54, 0x24, 0x10, 0x89, 0x4C, 0x24, 0x08, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55 };
+		constexpr std::array<std::uint8_t, 16> kBytesPutOn{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
+		constexpr std::array<std::uint8_t, 16> kBytesUnequip{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57 };
+		constexpr std::array<std::uint8_t, 16> kBytesCanProcessSleepKey{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0xF9 };
+		constexpr std::array<std::uint8_t, 16> kBytesIsSleepKey{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8, 0x9E, 0x79 };
+		constexpr std::array<std::uint8_t, 16> kBytesSendSleepPackage{ 0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0xD9 };
 		constexpr std::array<std::uint8_t, 16> kBytesAssign{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18, 0x4C };
 
 		// Hand-over: losses of the sleep package before the next follower gets the bed,
@@ -68,12 +83,28 @@ namespace Patch
 		using AllowedToUse_t = bool (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, bool a_childBed, RE::PlayerCharacter* a_player);
 		using Assign_t = void (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, void* a_slot, const char* a_role);
 		using SelectPackage_t = bool (*)(RE::AIProcess* a_process, RE::Actor* a_actor, bool a_force);
+		using DressNow_t = void (*)(RE::FormID a_actorID, bool a_animate);
+		using CanProcess_t = bool (*)(RE::MenuOpenHandler* a_handler, RE::InputEvent* a_event);
+		using SendSleepPackage_t = bool (*)(RE::Actor* a_actor, RE::TESObjectREFR* a_bed);
+		using IsSleepKey_t = bool (*)(const RE::ButtonEvent* a_event);
+		using PutOn_t = bool (*)(RE::Actor* a_actor, RE::FormID a_itemID, std::uint8_t a_slot);
+		using Unequip_t = bool (*)(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot, bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow, const RE::BGSEquipSlot* a_slotToReplace);
 
 		LayFollowersDown_t g_origLayFollowersDown = nullptr;
 		SortSleepers_t     g_origSortSleepers = nullptr;
 		AllowedToUse_t     g_origAllowedToUse = nullptr;
 		Assign_t           g_origAssign = nullptr;
 		SelectPackage_t    g_origSelectPackage = nullptr;
+		DressNow_t         g_origDressNow = nullptr;
+		CanProcess_t       g_origCanProcessSleepKey = nullptr;
+		SendSleepPackage_t g_origSendSleepPackage = nullptr;
+		IsSleepKey_t       g_isSleepKey = nullptr;
+		CanProcess_t*      g_vanillaCanProcess = nullptr;  // slot in SleepInBedSKSE.dll holding the game's function
+		PutOn_t            g_origPutOn = nullptr;
+		Unequip_t          g_origUnequip = nullptr;
+
+		// True while DressNow runs for someone who must stay as they are: nothing is put on or taken off.
+		thread_local bool g_keepAsIs = false;
 
 		// Followers whose walk to bed was protected this bedtime (package selection can run on AI threads).
 		std::mutex                        g_walkLock;
@@ -89,6 +120,7 @@ namespace Patch
 		std::unordered_set<RE::Actor*>   g_allowed;
 		std::unordered_set<RE::Actor*>   g_loggedBlocked;
 		std::vector<RE::Actor*>          g_matchingOrder;  // matching followers, in the random order
+		std::vector<Door::Assigned>      g_assignedList;   // everyone Sleep In Bed sent to a bed this bedtime
 		RE::Actor*                       g_assignedPartner = nullptr;
 
 		// Watch of the follower sent to the player's bed (game main thread only).
@@ -191,6 +223,13 @@ namespace Patch
 				HandOver("is gone");
 				return;
 			}
+			if (Door::OnDuty(partner)) {
+				// Closing the room door: not a lost sleep package.
+				g_watch.losses = 0;
+				g_watch.held = false;
+				g_watch.partnerSince = std::chrono::steady_clock::now();
+				return;
+			}
 			const bool held = HoldsCreatedSleepPackage(partner);
 			if (held) {
 				g_watch.everHeld = true;
@@ -279,6 +318,7 @@ namespace Patch
 			g_allowed.clear();
 			g_loggedBlocked.clear();
 			g_matchingOrder.clear();
+			g_assignedList.clear();
 			g_assignedPartner = nullptr;
 		}
 
@@ -294,6 +334,23 @@ namespace Patch
 			g_playerBed = bed.get();
 			g_inBedtime = g_playerBed != nullptr;
 			g_origLayFollowersDown(a_bedHandle);
+			for (auto* follower : g_followers) {
+				Eyes::Track(follower);
+			}
+			if (g_playerBed) {
+				RE::Actor*         closer = g_assignedPartner;
+				RE::TESObjectREFR* closerBed = g_assignedPartner ? g_playerBed : nullptr;
+				if (!closer) {
+					for (const auto& entry : g_assignedList) {
+						if (g_followers.contains(entry.actor)) {
+							closer = entry.actor;
+							closerBed = entry.bed;
+							break;
+						}
+					}
+				}
+				Door::Begin(g_playerBed, closer, closerBed, g_assignedList);
+			}
 			if (g_assignedPartner && g_playerBed) {
 				StartWatch(g_assignedPartner, g_playerBed);
 			}
@@ -364,9 +421,21 @@ namespace Patch
 			return g_origAllowedToUse(a_actor, a_bed, a_childBed, a_player);
 		}
 
+		bool HookSendSleepPackage(RE::Actor* a_actor, RE::TESObjectREFR* a_bed)
+		{
+			if (Door::OnDuty(a_actor)) {
+				// She is closing the room door; she is sent to bed again once it is closed.
+				return true;
+			}
+			return g_origSendSleepPackage(a_actor, a_bed);
+		}
+
 		bool HookSelectPackage(RE::AIProcess* a_process, RE::Actor* a_actor, bool a_force)
 		{
 			auto* package = a_process ? a_process->currentPackage.package : nullptr;
+			if (Door::KeepsPackage(a_actor, package)) {
+				return false;
+			}
 			if (a_actor && !a_actor->IsPlayerRef() && package &&
 				package->packData.packType == RE::PACKAGE_TYPE::kSleep &&
 				package->packData.packFlags.any(RE::PACKAGE_DATA::GeneralFlag::kCreated) &&
@@ -385,10 +454,95 @@ namespace Patch
 			return g_origSelectPackage(a_process, a_actor, a_force);
 		}
 
+		// Sleep In Bed 1.4 answers "yes" for its sleep key (by default the Wait key/button) everywhere, so in
+		// unpaused inventory/magic/favorites menus the back/Wait button opens the Wait menu instead of switching
+		// menus. It only uses that key when the player lies in bed or has a jail sentence to serve, with no menu
+		// open; everywhere else the game's own answer is used.
+		bool AnyMenuUsingTheKeyOpen(RE::UI* a_ui)
+		{
+			static constexpr std::array<std::string_view, 21> kMenus{
+				RE::InventoryMenu::MENU_NAME, RE::MagicMenu::MENU_NAME, RE::FavoritesMenu::MENU_NAME, RE::TweenMenu::MENU_NAME,
+				RE::ContainerMenu::MENU_NAME, RE::BarterMenu::MENU_NAME, RE::GiftMenu::MENU_NAME, RE::MapMenu::MENU_NAME,
+				RE::JournalMenu::MENU_NAME, RE::StatsMenu::MENU_NAME, RE::BookMenu::MENU_NAME, RE::LockpickingMenu::MENU_NAME,
+				RE::CraftingMenu::MENU_NAME, RE::DialogueMenu::MENU_NAME, RE::SleepWaitMenu::MENU_NAME, RE::MessageBoxMenu::MENU_NAME,
+				RE::Console::MENU_NAME, RE::TrainingMenu::MENU_NAME, RE::LevelUpMenu::MENU_NAME, RE::FaderMenu::MENU_NAME, RE::LoadingMenu::MENU_NAME
+			};
+			for (const auto& name : kMenus) {
+				if (a_ui->IsMenuOpen(name)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool SleepKeyNeeded()
+		{
+			auto* ui = RE::UI::GetSingleton();
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			if (!ui || !player || ui->numPausesGame > 0 || AnyMenuUsingTheKeyOpen(ui)) {
+				return false;
+			}
+			const auto life = player->AsActorState()->GetLifeState();
+			if (life == RE::ACTOR_LIFE_STATE::kDying || life == RE::ACTOR_LIFE_STATE::kDead) {
+				return false;
+			}
+			const bool lyingInBed = player->AsActorState()->GetSitSleepState() == RE::SIT_SLEEP_STATE::kIsSleeping;
+			const bool sentence = player->GetPlayerRuntimeData().jailSentence > 0 && !player->GetPlayerFlags().escaping;
+			return lyingInBed || sentence;
+		}
+
+		bool HookCanProcessSleepKey(RE::MenuOpenHandler* a_handler, RE::InputEvent* a_event)
+		{
+			if (a_event && a_event->GetEventType() == RE::INPUT_EVENT_TYPE::kButton) {
+				const auto* button = a_event->AsButtonEvent();
+				if (button && g_isSleepKey(button) && !SleepKeyNeeded()) {
+					auto vanilla = *g_vanillaCanProcess;
+					return vanilla ? vanilla(a_handler, a_event) : false;
+				}
+			}
+			return g_origCanProcessSleepKey(a_handler, a_event);
+		}
+
+		void HookDressNow(RE::FormID a_actorID, bool a_animate)
+		{
+			const bool player = a_actorID == 0x14;
+			const bool redress = player ? Settings::Get().redressPlayer : Settings::Get().redressFollowers;
+			if (redress) {
+				g_origDressNow(a_actorID, a_animate);
+				return;
+			}
+			// Let Sleep In Bed run its dress step (so it forgets the gear it remembered and the next
+			// bedtime works as usual), but without animation and without touching any item.
+			auto* actor = RE::TESForm::LookupByID<RE::Actor>(a_actorID);
+			SKSE::log::info("[dress] {:08X} ({}) got up: re-equipping is off, stays as is", a_actorID, NameOf(actor));
+			g_keepAsIs = true;
+			g_origDressNow(a_actorID, false);
+			g_keepAsIs = false;
+		}
+
+		bool HookPutOn(RE::Actor* a_actor, RE::FormID a_itemID, std::uint8_t a_slot)
+		{
+			if (g_keepAsIs) {
+				return false;
+			}
+			return g_origPutOn(a_actor, a_itemID, a_slot);
+		}
+
+		bool HookUnequip(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot, bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow, const RE::BGSEquipSlot* a_slotToReplace)
+		{
+			if (g_keepAsIs) {
+				return false;
+			}
+			return g_origUnequip(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip, a_playSounds, a_applyNow, a_slotToReplace);
+		}
+
 		void HookAssign(RE::Actor* a_actor, RE::TESObjectREFR* a_bed, void* a_slot, const char* a_role)
 		{
 			if (g_inBedtime && a_bed && a_bed == g_playerBed && g_followers.contains(a_actor) && !g_assignedPartner) {
 				g_assignedPartner = a_actor;
+			}
+			if (g_inBedtime && a_actor && a_bed) {
+				g_assignedList.push_back({ a_actor, a_bed });
 			}
 			g_origAssign(a_actor, a_bed, a_slot, a_role);
 		}
@@ -431,12 +585,21 @@ namespace Patch
 		                     BytesMatch(base, kRvaSortSleepers, kBytesSortSleepers, "SortSleepers") &
 		                     BytesMatch(base, kRvaAllowedToUse, kBytesAllowedToUse, "AllowedToUse") &
 		                     BytesMatch(base, kRvaAssign, kBytesAssign, "Assign") &
-		                     BytesMatch(base, kRvaSelectPackage, kBytesSelectPackage, "SelectPackage");
+		                     BytesMatch(base, kRvaSelectPackage, kBytesSelectPackage, "SelectPackage") &
+		                     BytesMatch(base, kRvaDressNow, kBytesDressNow, "DressNow") &
+		                     BytesMatch(base, kRvaPutOn, kBytesPutOn, "PutOn") &
+		                     BytesMatch(base, kRvaUnequip, kBytesUnequip, "Unequip") &
+		                     BytesMatch(base, kRvaCanProcessSleepKey, kBytesCanProcessSleepKey, "CanProcessWithSleepKey") &
+		                     BytesMatch(base, kRvaIsSleepKey, kBytesIsSleepKey, "IsSleepKey") &
+		                     BytesMatch(base, kRvaSendSleepPackage, kBytesSendSleepPackage, "SendSleepPackage");
 		if (stamp != kSupportedTimeDateStamp || !bytesOk) {
 			g_state = State::kWrongVersion;
 			SKSE::log::warn("[patch] SleepInBedSKSE.dll build stamp {} is not Sleep In Bed SKSE 1.4 ({}). Nothing patched.", stamp, kSupportedTimeDateStamp);
 			return;
 		}
+
+		g_isSleepKey = reinterpret_cast<IsSleepKey_t>(base + kRvaIsSleepKey);
+		g_vanillaCanProcess = reinterpret_cast<CanProcess_t*>(base + kRvaVanillaCanProcess);
 
 		const auto init = MH_Initialize();
 		if (init != MH_OK && init != MH_ERROR_ALREADY_INITIALIZED) {
@@ -448,7 +611,12 @@ namespace Patch
 		                     Hook(base, kRvaSortSleepers, reinterpret_cast<void*>(&HookSortSleepers), reinterpret_cast<void**>(&g_origSortSleepers), "SortSleepers") &&
 		                     Hook(base, kRvaAllowedToUse, reinterpret_cast<void*>(&HookAllowedToUse), reinterpret_cast<void**>(&g_origAllowedToUse), "AllowedToUse") &&
 		                     Hook(base, kRvaAssign, reinterpret_cast<void*>(&HookAssign), reinterpret_cast<void**>(&g_origAssign), "Assign") &&
-		                     Hook(base, kRvaSelectPackage, reinterpret_cast<void*>(&HookSelectPackage), reinterpret_cast<void**>(&g_origSelectPackage), "SelectPackage");
+		                     Hook(base, kRvaSelectPackage, reinterpret_cast<void*>(&HookSelectPackage), reinterpret_cast<void**>(&g_origSelectPackage), "SelectPackage") &&
+		                     Hook(base, kRvaDressNow, reinterpret_cast<void*>(&HookDressNow), reinterpret_cast<void**>(&g_origDressNow), "DressNow") &&
+		                     Hook(base, kRvaPutOn, reinterpret_cast<void*>(&HookPutOn), reinterpret_cast<void**>(&g_origPutOn), "PutOn") &&
+		                     Hook(base, kRvaUnequip, reinterpret_cast<void*>(&HookUnequip), reinterpret_cast<void**>(&g_origUnequip), "Unequip") &&
+		                     Hook(base, kRvaCanProcessSleepKey, reinterpret_cast<void*>(&HookCanProcessSleepKey), reinterpret_cast<void**>(&g_origCanProcessSleepKey), "CanProcessWithSleepKey") &&
+		                     Hook(base, kRvaSendSleepPackage, reinterpret_cast<void*>(&HookSendSleepPackage), reinterpret_cast<void**>(&g_origSendSleepPackage), "SendSleepPackage");
 		if (!created || MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
 			MH_DisableHook(MH_ALL_HOOKS);
 			g_state = State::kHookFailed;
@@ -463,5 +631,12 @@ namespace Patch
 	State GetState()
 	{
 		return g_state;
+	}
+
+	void SendToBed(RE::Actor* a_actor, RE::TESObjectREFR* a_bed)
+	{
+		if (g_state == State::kActive && a_actor && a_bed) {
+			g_origAssign(a_actor, a_bed, nullptr, kRole);
+		}
 	}
 }

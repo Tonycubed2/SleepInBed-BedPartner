@@ -16,6 +16,9 @@ namespace Settings
 	{
 		std::int32_t bedPartner{ kPartnerAny };
 		bool         thirdPersonInBed{ false };
+		bool         redressPlayer{ true };     // put the player's gear back on after sleeping
+		bool         redressFollowers{ true };  // put followers' gear back on after sleeping
+		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
 	};
 
 	const Values& Get();

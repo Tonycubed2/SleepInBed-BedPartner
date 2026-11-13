@@ -107,6 +107,10 @@ namespace Camera
 
 	void Install()
 	{
+		if (REL::Module::IsVR()) {
+			SKSE::log::info("[camera] Skyrim VR: the bed camera option does not apply (VR is always first person)");
+			return;
+		}
 		std::thread(Thread).detach();
 		SKSE::log::info("[camera] bed camera watch started");
 	}

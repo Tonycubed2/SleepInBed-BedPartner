@@ -9,12 +9,14 @@
 // INI: Data\SKSE\Plugins\SleepInBedPartner.ini
 
 #include "Camera.h"
+#include "Door.h"
+#include "Eyes.h"
 #include "Menu.h"
 #include "Patch.h"
 #include "Settings.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 3, 0, 0 },
+	.Version = REL::Version{ 1, 6, 0, 0 },
 	.Name = "SleepInBedPartner"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -28,6 +30,8 @@ namespace
 			// Every SKSE plugin, SleepInBedSKSE.dll included, is loaded by now.
 			Patch::Install();
 			Camera::Install();
+			Eyes::Install();
+			Door::Install();
 			Menu::Install();
 		}
 	}
@@ -38,7 +42,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	SKSE::Init(a_skse);
 	spdlog::set_level(spdlog::level::info);
 	spdlog::flush_on(spdlog::level::info);
-	SKSE::log::info("Sleep In Bed - Bed Partner 1.3.0 loading; game runtime {}", REL::Module::get().version().string());
+	SKSE::log::info("Sleep In Bed - Bed Partner 1.6.0 loading; game runtime {}", REL::Module::get().version().string());
 
 	Settings::Load();
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(SleepInBedPartner VERSION 1.3.0 LANGUAGES CXX)
+project(SleepInBedPartner VERSION 1.6.0 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -16,7 +16,7 @@ message(STATUS "Using CommonLibSSE-NG from: ${COMMONLIB_DIR}")
 
 set(ENABLE_SKYRIM_SE ON CACHE BOOL "" FORCE)
 set(ENABLE_SKYRIM_AE ON CACHE BOOL "" FORCE)
-set(ENABLE_SKYRIM_VR OFF CACHE BOOL "" FORCE)
+set(ENABLE_SKYRIM_VR ON CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SKSE_SUPPORT_PATCH_SAFETY OFF CACHE BOOL "" FORCE)
 
@@ -34,11 +34,15 @@ add_library(${PROJECT_NAME} SHARED
 	src/Patch.cpp
 	src/Menu.cpp
 	src/Camera.cpp
+	src/Eyes.cpp
+	src/Door.cpp
 	src/PCH.h
 	src/Settings.h
 	src/Patch.h
 	src/Menu.h
 	src/Camera.h
+	src/Eyes.h
+	src/Door.h
 	src/SKSEMenuFramework.h
 )
 
