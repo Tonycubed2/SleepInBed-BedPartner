@@ -14,9 +14,10 @@
 #include "Menu.h"
 #include "Patch.h"
 #include "Settings.h"
+#include "Weapons.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 10, 0, 0 },
+	.Version = REL::Version{ 1, 11, 0, 0 },
 	.Name = "SleepInBedPartner"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -36,11 +37,13 @@ namespace
 			Camera::Install();
 			Eyes::Install();
 			Door::Install();
+			Weapons::Install();
 			Menu::Install();
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 		case SKSE::MessagingInterface::kNewGame:
 			Patch::OnLoadingGame();
+			Weapons::OnLoadingGame();
 			break;
 		default:
 			break;
@@ -53,7 +56,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	SKSE::Init(a_skse);
 	spdlog::set_level(spdlog::level::info);
 	spdlog::flush_on(spdlog::level::info);
-	SKSE::log::info("Sleep In Bed - Bed Partner 1.10.0 loading; game runtime {}", REL::Module::get().version().string());
+	SKSE::log::info("Sleep In Bed - Bed Partner 1.11.0 loading; game runtime {}", REL::Module::get().version().string());
 
 	Settings::Load();
 

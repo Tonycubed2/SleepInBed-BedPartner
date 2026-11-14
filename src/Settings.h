@@ -24,6 +24,7 @@ namespace Settings
 		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
 		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
 		std::uint32_t keepSlots{ 0 };           // sleepwear mode: biped slots kept on (bit n = slot 30+n)
+		bool         unequipWeaponsDressed{ false };  // "stay dressed": weapons, shield and torch still come off in bed
 	};
 
 	const Values& Get();

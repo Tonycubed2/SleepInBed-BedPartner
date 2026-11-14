@@ -62,6 +62,14 @@ namespace Menu
 				}
 			}
 
+			ui::SeparatorText("Weapons");
+			bool weapons = Settings::Get().unequipWeaponsDressed;
+			if (ui::Checkbox("Unequip weapons when sleeping clothed", &weapons)) {
+				Settings::Edit().unequipWeaponsDressed = weapons;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "For \"stay dressed\" in Sleep In Bed: when you or a follower lie in bed with clothes or armor on, weapons, shield and torch are taken off, and put back on when getting up (if \"Put my gear back on\" / \"Put followers' gear back on\" is on). Undress and sleepwear already take weapons off by themselves.");
+
 			ui::SeparatorText("After sleeping");
 			bool redressPlayer = Settings::Get().redressPlayer;
 			if (ui::Checkbox("Put my gear back on", &redressPlayer)) {

@@ -55,6 +55,12 @@ themselves meanwhile is left as they are; loading a save dresses whoever is stil
 takes off everything that is not sleepwear. Tick the slots that should stay on (head, body, hands, forearms,
 amulet, rings, feet, calves, shield, circlet, ears, mod slots 44-61). INI: `[Sleepwear] sKeepSlots` (slot numbers).
 
+**Unequip weapons when sleeping clothed** (off by default = Sleep In Bed's normal behavior): with Sleep In Bed's
+"stay dressed" choice nothing is taken off, weapons included. With this on, when you or a follower lie in bed with
+clothes or armor on, weapons, shield and torch are taken off, and put back on when getting up (if re-equipping is
+on). Undress and sleepwear already take weapons off by themselves. A save loaded while in bed forgets what was taken
+off: equip it yourself. INI: `[Dress] bUnequipWeaponsDressed`.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
 `Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 
