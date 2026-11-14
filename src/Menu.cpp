@@ -51,6 +51,13 @@ namespace Menu
 			}
 			ui::SetItemTooltip("%s", "When you lie down indoors, other NPCs in the room walk out and a follower closes the room door, then goes to bed. If the door is opened again while you are in bed, she gets up and closes it again.");
 
+			bool stay = Settings::Get().stayInBedToTalk;
+			if (ui::Checkbox("Followers stay in bed when you talk to them", &stay)) {
+				Settings::Edit().stayInBedToTalk = stay;
+				Settings::Save();
+			}
+			ui::SetItemTooltip("%s", "While you lie in bed, talking to a follower who lies in bed no longer makes her get up first: she talks lying down. It works by removing the bed's \"must exit to talk\" flag while you lie in bed (put back when you get up), so meanwhile any NPC in the same kind of bed also talks lying down.");
+
 			ui::SeparatorText("Sleepwear: keep on");
 			ui::TextWrapped("%s", "In sleepwear mode, Sleep In Bed takes off everything that is not sleepwear. Tick what should stay on.");
 			for (const auto& group : Settings::SlotGroups()) {

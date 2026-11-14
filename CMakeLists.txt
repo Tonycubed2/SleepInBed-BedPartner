@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(SleepInBedPartner VERSION 1.11.0 LANGUAGES CXX)
+project(SleepInBedPartner VERSION 1.12.0 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -37,6 +37,7 @@ add_library(${PROJECT_NAME} SHARED
 	src/Eyes.cpp
 	src/Door.cpp
 	src/Weapons.cpp
+	src/Talk.cpp
 	src/PCH.h
 	src/Settings.h
 	src/Patch.h
@@ -45,6 +46,7 @@ add_library(${PROJECT_NAME} SHARED
 	src/Eyes.h
 	src/Door.h
 	src/Weapons.h
+	src/Talk.h
 	src/SKSEMenuFramework.h
 )
 

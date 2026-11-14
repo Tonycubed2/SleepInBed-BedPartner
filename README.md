@@ -61,6 +61,12 @@ clothes or armor on, weapons, shield and torch are taken off, and put back on wh
 on). Undress and sleepwear already take weapons off by themselves. A save loaded while in bed forgets what was taken
 off: equip it yourself. INI: `[Dress] bUnequipWeaponsDressed`.
 
+**Followers stay in bed when you talk to them** (off by default = the game's normal behavior): beds with the
+furniture flag "Must Exit to Talk" (most vanilla beds) make a sleeping NPC get up when you talk to her. With this on,
+while you lie in bed the beds your followers lie in lose that flag, so they talk lying down; it is put back when you
+get up. The flag belongs to the bed type, so meanwhile any NPC in the same kind of bed also talks lying down.
+INI: `[Room] bStayInBedToTalk`.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
 `Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 
