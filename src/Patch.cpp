@@ -5,6 +5,7 @@
 #include "Door.h"
 #include "Eyes.h"
 #include "Settings.h"
+#include "Spoon.h"
 
 #include <MinHook.h>
 #include <Windows.h>
@@ -207,6 +208,7 @@ namespace Patch
 				}
 				SKSE::log::info("[partner] {:08X} ({}) {}: the player's bed goes to {:08X} ({})", old ? old->GetFormID() : 0, NameOf(old), a_why, next->GetFormID(), NameOf(next));
 				g_origAssign(next, bed, nullptr, kRole);
+				Spoon::PartnerChanged(old, next);
 				g_watch.partner = next->GetHandle();
 				g_watch.losses = 0;
 				g_watch.held = false;
@@ -352,9 +354,27 @@ namespace Patch
 			for (auto* follower : g_followers) {
 				Eyes::Track(follower);
 			}
+			RE::TESObjectREFR* partnerBed = g_assignedPartner ? g_playerBed : nullptr;
+			if (g_playerBed && g_assignedPartner) {
+				Spoon::PairInDoubleBed(g_assignedPartner);
+			} else if (g_playerBed && !g_matchingOrder.empty()) {
+				// Nobody got the player's bed (single bed or bedroll): Spooning of Skyrim's spot next to the player.
+				if (auto* spot = Spoon::PlaceSingleBedSpot(g_playerBed)) {
+					auto* partner = g_matchingOrder.front();
+					SKSE::log::info("[partner] {:08X} ({}) shares the player's single bed or bedroll (Spooning of Skyrim spot)", partner->GetFormID(), NameOf(partner));
+					g_origAssign(partner, spot, nullptr, kRole);
+					g_assignedPartner = partner;
+					partnerBed = spot;
+					for (auto& entry : g_assignedList) {
+						if (entry.actor == partner) {
+							entry.bed = spot;
+						}
+					}
+				}
+			}
 			if (g_playerBed) {
 				RE::Actor*         closer = g_assignedPartner;
-				RE::TESObjectREFR* closerBed = g_assignedPartner ? g_playerBed : nullptr;
+				RE::TESObjectREFR* closerBed = partnerBed;
 				if (!closer) {
 					for (const auto& entry : g_assignedList) {
 						if (g_followers.contains(entry.actor)) {
@@ -366,8 +386,8 @@ namespace Patch
 				}
 				Door::Begin(g_playerBed, closer, closerBed, g_assignedList);
 			}
-			if (g_assignedPartner && g_playerBed) {
-				StartWatch(g_assignedPartner, g_playerBed);
+			if (g_assignedPartner && partnerBed) {
+				StartWatch(g_assignedPartner, partnerBed);
 			}
 			ResetBedtime();
 		}

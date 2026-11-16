@@ -72,6 +72,16 @@ INI: `[Room] bStayInBedToTalk`.
 (boots, gloves, weapons...). While that actor is in an OStim scene the gear stays off; it goes back on as usual once
 the scene is over.
 
+**Spooning** (each option greyed out in the menu, with the reason, when its mod is missing):
+- *Spoon in double beds* (on by default): with [Double Bed Spooning - OAR](https://www.nexusmods.com/skyrimspecialedition/mods/118088)
+  and the optional **Double Bed Spooning patch** (`SleepInBedPartner - Spooning.esp`, ESL, plus 3 replacement OAR configs),
+  you and your bed partner get the same pose, picked at random each night from the ticked poses. That mod's own random
+  rolls (separate for each sleeper, and also used for people sleeping alone) are replaced: only the two of you get a pose.
+  The DAR version of Double Bed Spooning is not supported. INI: `[Spooning] bDoubleBeds`, `iPoses`.
+- *Share single beds and bedrolls* (off by default): with [Spooning of Skyrim](https://www.nexusmods.com/skyrimspecialedition/mods/153263),
+  when you lie in a single bed or bedroll your bed partner lies next to you, on that mod's hidden bed spot (its Partner A
+  offsets). Does nothing while Spooning of Skyrim's own spooner spell has partners assigned. INI: `[Spooning] bShareSingleBeds`.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
 `Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 

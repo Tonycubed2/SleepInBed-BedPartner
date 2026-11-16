@@ -25,7 +25,10 @@ namespace Settings
 		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
 		std::uint32_t keepSlots{ 0 };           // sleepwear mode: biped slots kept on (bit n = slot 30+n)
 		bool         unequipWeaponsDressed{ false };
-		bool         stayInBedToTalk{ false };       // talking to a follower in bed while the player lies in bed does not make her get up  // "stay dressed": weapons, shield and torch still come off in bed
+		bool         stayInBedToTalk{ false };
+		bool         spoonDoubleBeds{ true };        // Double Bed Spooning: player and bed partner get the same pose
+		std::uint32_t spoonPoses{ 7 };               // bit 0 = Position 3, bit 1 = Position 4, bit 2 = Position 6
+		bool         shareSingleBeds{ false };       // Spooning of Skyrim: bed partner shares single beds and bedrolls       // talking to a follower in bed while the player lies in bed does not make her get up  // "stay dressed": weapons, shield and torch still come off in bed
 	};
 
 	const Values& Get();

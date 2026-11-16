@@ -1,0 +1,16 @@
+{
+    "name": "Position 6",
+    "description": "LeftActor on back, RightActor facing - only for the player and bed partner given this pose by Sleep In Bed SKSE - Bed Partner",
+    "priority": 3402,
+    "replaceOnLoop": true,
+    "conditions": [
+        {
+            "condition": "HasSpell",
+            "requiredVersion": "1.0.0.0",
+            "Spell": {
+                "pluginName": "SleepInBedPartner - Spooning.esp",
+                "formID": "802"
+            }
+        }
+    ]
+}

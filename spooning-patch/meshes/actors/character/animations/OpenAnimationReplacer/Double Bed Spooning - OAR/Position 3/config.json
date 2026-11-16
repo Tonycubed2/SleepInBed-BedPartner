@@ -1,0 +1,16 @@
+{
+    "name": "Position 3",
+    "description": "LeftActor and RightActor side by side facing - only for the player and bed partner given this pose by Sleep In Bed SKSE - Bed Partner",
+    "priority": 3400,
+    "replaceOnLoop": true,
+    "conditions": [
+        {
+            "condition": "HasSpell",
+            "requiredVersion": "1.0.0.0",
+            "Spell": {
+                "pluginName": "SleepInBedPartner - Spooning.esp",
+                "formID": "800"
+            }
+        }
+    ]
+}

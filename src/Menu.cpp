@@ -4,6 +4,7 @@
 
 #include "Patch.h"
 #include "Settings.h"
+#include "Spoon.h"
 
 #include "SKSEMenuFramework.h"
 
@@ -57,6 +58,47 @@ namespace Menu
 				Settings::Save();
 			}
 			ui::SetItemTooltip("%s", "While you lie in bed, talking to a follower who lies in bed no longer makes her get up first: she talks lying down. It works by removing the bed's \"must exit to talk\" flag while you lie in bed (put back when you get up), so meanwhile any NPC in the same kind of bed also talks lying down.");
+
+			ui::SeparatorText("Spooning");
+			{
+				const bool available = Spoon::DoubleBedAvailable();
+				ui::BeginDisabled(!available);
+				bool dbl = Settings::Get().spoonDoubleBeds;
+				if (ui::Checkbox("Spoon in double beds", &dbl)) {
+					Settings::Edit().spoonDoubleBeds = dbl;
+					Settings::Save();
+				}
+				ui::SetItemTooltip("%s", "You and your bed partner get the same spooning pose from Double Bed Spooning - OAR, picked at random each night from the poses ticked below. Someone alone in a double bed sleeps normally.");
+				static constexpr std::array<const char*, 3> kPoses{ "Pose: side by side, facing (Position 3)", "Pose: arm around, resting on shoulder (Position 4)", "Pose: on back, facing (Position 6)" };
+				ui::BeginDisabled(!dbl);
+				for (std::size_t i = 0; i < kPoses.size(); ++i) {
+					bool on = (Settings::Get().spoonPoses & (1u << i)) != 0;
+					if (ui::Checkbox(kPoses[i], &on)) {
+						auto& poses = Settings::Edit().spoonPoses;
+						poses = on ? (poses | (1u << i)) : (poses & ~(1u << i));
+						Settings::Save();
+					}
+				}
+				ui::EndDisabled();
+				ui::EndDisabled();
+				if (!available) {
+					ui::TextWrapped("%s", Spoon::DoubleBedMissing());
+				}
+			}
+			{
+				const bool available = Spoon::SingleBedAvailable();
+				ui::BeginDisabled(!available);
+				bool single = Settings::Get().shareSingleBeds;
+				if (ui::Checkbox("Share single beds and bedrolls", &single)) {
+					Settings::Edit().shareSingleBeds = single;
+					Settings::Save();
+				}
+				ui::SetItemTooltip("%s", "When you lie in a single bed or a bedroll, your bed partner lies down next to you, on Spooning of Skyrim's hidden bed spot (its MCM offsets for Partner A are used). Off while Spooning of Skyrim's own spooner spell has partners assigned.");
+				ui::EndDisabled();
+				if (!available) {
+					ui::TextWrapped("%s", Spoon::SingleBedMissing());
+				}
+			}
 
 			ui::SeparatorText("Sleepwear: keep on");
 			ui::TextWrapped("%s", "In sleepwear mode, Sleep In Bed takes off everything that is not sleepwear. Tick what should stay on.");

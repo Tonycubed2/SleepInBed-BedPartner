@@ -38,6 +38,9 @@ namespace Settings
 		loaded.clearRoom = ini.GetBoolValue("Room", "bClearRoom", loaded.clearRoom);
 		loaded.unequipWeaponsDressed = ini.GetBoolValue("Dress", "bUnequipWeaponsDressed", loaded.unequipWeaponsDressed);
 		loaded.stayInBedToTalk = ini.GetBoolValue("Room", "bStayInBedToTalk", loaded.stayInBedToTalk);
+		loaded.spoonDoubleBeds = ini.GetBoolValue("Spooning", "bDoubleBeds", loaded.spoonDoubleBeds);
+		loaded.spoonPoses = static_cast<std::uint32_t>(ini.GetLongValue("Spooning", "iPoses", loaded.spoonPoses)) & 7u;
+		loaded.shareSingleBeds = ini.GetBoolValue("Spooning", "bShareSingleBeds", loaded.shareSingleBeds);
 		{
 			std::string list = ini.GetValue("Sleepwear", "sKeepSlots", "");
 			std::string number;
@@ -103,6 +106,9 @@ namespace Settings
 		ini.SetLongValue("Dress", "iRedressDelay", g_values.redressDelay, "; Game minutes to stay in sleepwear after getting up before the gear goes back on (0 = at once, Sleep In Bed's normal behavior; max 240).\n; In combat, or if the player is attacked, the gear goes back on at once.");
 		ini.SetBoolValue("Dress", "bUnequipWeaponsDressed", g_values.unequipWeaponsDressed, "; 1 = when you or a follower lie in bed still dressed (Sleep In Bed: stay dressed), weapons, shield and torch are taken off, and put back on when getting up.");
 		ini.SetBoolValue("Room", "bStayInBedToTalk", g_values.stayInBedToTalk, "; 1 = while you lie in bed, talking to a follower who lies in bed does not make her get up.");
+		ini.SetBoolValue("Spooning", "bDoubleBeds", g_values.spoonDoubleBeds, "; 1 = with Double Bed Spooning - OAR and the Double Bed Spooning patch: you and your bed partner get the same spooning pose in a double bed.");
+		ini.SetLongValue("Spooning", "iPoses", static_cast<long>(g_values.spoonPoses), "; Poses that can be picked (added up): 1 = Position 3 (side by side, facing), 2 = Position 4 (arm around, resting on shoulder), 4 = Position 6 (on back, facing). 7 = all.");
+		ini.SetBoolValue("Spooning", "bShareSingleBeds", g_values.shareSingleBeds, "; 1 = with Spooning of Skyrim: your bed partner also shares single beds and bedrolls (lies next to you).");
 		ini.SetBoolValue("Room", "bClearRoom", g_values.clearRoom, "; 1 = when you lie down indoors, other NPCs leave the room and a follower closes the door (and closes it again if it is opened while you are in bed).");
 		if (ini.SaveFile(kPath) < 0) {
 			SKSE::log::warn("[settings] could not save {}", kPath);
