@@ -575,6 +575,23 @@ namespace Patch
 			g_keepAsIs = false;
 		}
 
+		// OStim (OStim.esp 0xD93, OStimExcitementFaction): an actor is in this faction for the whole of an
+		// OStim scene (ThreadActor init adds it, Threading::freeActor removes it). A scene that starts while
+		// the actor lies in bed makes her leave the bed, and Sleep In Bed then puts back all the gear it took off.
+		// While she is in a scene that dressing waits; it runs normally once the scene is over.
+		std::unordered_map<RE::FormID, bool> g_ostimWait;  // actor -> animate; main thread only
+
+		bool InOStimScene(RE::Actor* a_actor)
+		{
+			static RE::TESFaction* faction = [] {
+				auto* data = RE::TESDataHandler::GetSingleton();
+				return data ? data->LookupForm<RE::TESFaction>(0xD93, "OStim.esp") : nullptr;
+			}();
+			return faction && a_actor && a_actor->IsInFaction(faction);
+		}
+
+		void HookDressNow(RE::FormID a_actorID, bool a_animate);
+
 		void DelayTick()
 		{
 			g_delayTickQueued = false;
@@ -601,7 +618,21 @@ namespace Patch
 					g_origDressNow(id, entry.animate && !danger);
 				}
 			}
-			g_delayActive = !g_delayed.empty();
+			for (auto it = g_ostimWait.begin(); it != g_ostimWait.end();) {
+				const auto id = it->first;
+				const bool animate = it->second;
+				auto*      actor = RE::TESForm::LookupByID<RE::Actor>(id);
+				if (actor && !actor->IsDead() && InOStimScene(actor)) {
+					++it;
+					continue;
+				}
+				it = g_ostimWait.erase(it);
+				if (actor && !actor->IsDead()) {
+					SKSE::log::info("[dress] {:08X} ({}) OStim scene over: dressing as usual", id, NameOf(actor));
+					HookDressNow(id, animate);
+				}
+			}
+			g_delayActive = !g_delayed.empty() || !g_ostimWait.empty();
 		}
 
 		void DelayThread()
@@ -621,6 +652,13 @@ namespace Patch
 
 		void HookDressNow(RE::FormID a_actorID, bool a_animate)
 		{
+			if (auto* inScene = RE::TESForm::LookupByID<RE::Actor>(a_actorID); InOStimScene(inScene)) {
+				if (g_ostimWait.try_emplace(a_actorID, a_animate).second) {
+					SKSE::log::info("[dress] {:08X} ({}) got up for an OStim scene: gear stays off until the scene ends", a_actorID, NameOf(inScene));
+				}
+				g_delayActive = true;
+				return;
+			}
 			const bool player = a_actorID == 0x14;
 			const bool redress = player ? Settings::Get().redressPlayer : Settings::Get().redressFollowers;
 			if (redress) {
@@ -775,6 +813,7 @@ namespace Patch
 		// A save is being loaded: Sleep In Bed dresses whoever is still undressed right after the load.
 		// SKSE messages arrive on the game's main thread, like every use of g_delayed.
 		g_delayed.clear();
+		g_ostimWait.clear();
 		g_delayActive = false;
 	}
 

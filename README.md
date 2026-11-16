@@ -67,6 +67,11 @@ while you lie in bed the beds your followers lie in lose that flag, so they talk
 get up. The flag belongs to the bed type, so meanwhile any NPC in the same kind of bed also talks lying down.
 INI: `[Room] bStayInBedToTalk`.
 
+**OStim scenes from bed** (always on, does nothing without OStim): a scene that starts while someone lies in bed
+(for example OAfterSleep) makes them leave the bed, and Sleep In Bed would then put back all the gear it took off
+(boots, gloves, weapons...). While that actor is in an OStim scene the gear stays off; it goes back on as usual once
+the scene is over.
+
 Set it in **SKSE Menu → Sleep In Bed → Bed Partner** (needs SKSE Menu Framework), or in
 `Data\SKSE\Plugins\SleepInBedPartner.ini` (`iBedPartner` = 0 any, 1 opposite sex, 2 same sex; `bThirdPersonInBed` = 0/1; `bRedressPlayer`, `bRedressFollowers`, `bClearRoom` = 0/1).
 

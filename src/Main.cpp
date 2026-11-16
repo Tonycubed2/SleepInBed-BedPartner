@@ -18,7 +18,7 @@
 #include "Weapons.h"
 
 SKSEPluginInfo(
-	.Version = REL::Version{ 1, 12, 0, 0 },
+	.Version = REL::Version{ 1, 13, 0, 0 },
 	.Name = "SleepInBedPartner"sv,
 	.Author = "tonycubed2"sv,
 	.StructCompatibility = SKSE::StructCompatibility::Independent,
@@ -59,7 +59,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	SKSE::Init(a_skse);
 	spdlog::set_level(spdlog::level::info);
 	spdlog::flush_on(spdlog::level::info);
-	SKSE::log::info("Sleep In Bed - Bed Partner 1.12.0 loading; game runtime {}", REL::Module::get().version().string());
+	SKSE::log::info("Sleep In Bed - Bed Partner 1.13.0 loading; game runtime {}", REL::Module::get().version().string());
 
 	Settings::Load();
 

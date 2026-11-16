@@ -99,6 +99,16 @@ namespace Weapons
 			return nullptr;
 		}
 
+		// OStim scene (OStim.esp 0xD93, OStimExcitementFaction): weapons stay off until it is over.
+		bool InOStimScene(RE::Actor* a_actor)
+		{
+			static RE::TESFaction* faction = [] {
+				auto* data = RE::TESDataHandler::GetSingleton();
+				return data ? data->LookupForm<RE::TESFaction>(0xD93, "OStim.esp") : nullptr;
+			}();
+			return faction && a_actor && a_actor->IsInFaction(faction);
+		}
+
 		bool Watched(RE::Actor* a_actor)
 		{
 			if (!a_actor || a_actor->IsDead() || a_actor->IsChild() || !a_actor->Is3DLoaded()) {
@@ -216,7 +226,7 @@ namespace Weapons
 					it = g_taken.erase(it);
 					continue;
 				}
-				if (!actor->Is3DLoaded() || actor->AsActorState()->GetSitSleepState() >= RE::SIT_SLEEP_STATE::kWantToSleep) {
+				if (!actor->Is3DLoaded() || actor->AsActorState()->GetSitSleepState() >= RE::SIT_SLEEP_STATE::kWantToSleep || InOStimScene(actor)) {
 					++it;
 					continue;
 				}
