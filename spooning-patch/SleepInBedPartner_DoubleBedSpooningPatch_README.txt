@@ -1,4 +1,4 @@
-Sleep In Bed SKSE - Bed Partner: Double Bed Spooning patch 1.0.0, by tonycubed2
+Sleep In Bed SKSE - Bed Partner: Double Bed Spooning patch 1.0.1, by tonycubed2
 
 For Double Bed Spooning - OAR by CommonDominator (Nexus 118088). All credit for the spooning
 animations goes to him; this patch only replaces the 3 OAR config files.
@@ -18,3 +18,6 @@ Requirements
 Install
 Install with your mod manager below Double Bed Spooning - OAR, so these config.json files win.
 Enable SleepInBedPartner - Spooning.esp (ESL flagged: does not use a plugin slot).
+
+Changes
+1.0.1 - Each pose ability now has an (empty, hidden) effect, so xEdit no longer reports "Found a NULL reference, expected: MGEF". Nothing changes in game.
