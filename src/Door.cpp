@@ -262,6 +262,17 @@ namespace Door
 			}
 		}
 
+		// Closes the door the way Papyrus ObjectReference.SetOpen(false) does (SkyrimSE 1.6.1170 native at
+		// +0xA30920): if it is open or opening, the door is activated with no activator. Used when no follower
+		// closes it. The engine's BGSOpenCloseForm::SetOpenState(snap) is no longer used: with it, a door closed
+		// while nobody walked to it could be left with no "Open" prompt (report from a player, Breezehome).
+		void CloseLikePapyrus(RE::TESObjectREFR* a_door)
+		{
+			if (DoorOpen(a_door)) {
+				a_door->ActivateRef(nullptr, 0, nullptr, 1, false);
+			}
+		}
+
 		// The closer uses the door like anyone opening or closing it (door animation, sound).
 		void ActivateDoor(RE::TESObjectREFR* a_door, RE::Actor* a_by)
 		{
@@ -270,7 +281,7 @@ namespace Door
 				a_door->ActivateRef(a_by, 0, nullptr, 1, false);
 				SKSE::log::info("[room] {:08X} ({}) closes door {:08X} ({} -> {}) ({}/{})", a_by->GetFormID(), NameOf(a_by), a_door->GetFormID(), "open", OpenStateName(a_door), g_state.closes, kMaxCloses);
 			} else {
-				RE::BGSOpenCloseForm::SetOpenState(a_door, false, true);
+				CloseLikePapyrus(a_door);
 				SKSE::log::info("[room] door {:08X} closed by the patch: now {} ({}/{})", a_door->GetFormID(), OpenStateName(a_door), g_state.closes, kMaxCloses);
 			}
 		}
@@ -279,8 +290,8 @@ namespace Door
 		void MakeSureClosed(RE::TESObjectREFR* a_door)
 		{
 			if (DoorOpen(a_door)) {
-				RE::BGSOpenCloseForm::SetOpenState(a_door, false, true);
-				SKSE::log::info("[room] door {:08X} still open after being used: shut directly, now {}", a_door->GetFormID(), OpenStateName(a_door));
+				CloseLikePapyrus(a_door);
+				SKSE::log::info("[room] door {:08X} still open after being used: closed again, now {}", a_door->GetFormID(), OpenStateName(a_door));
 			} else {
 				SKSE::log::info("[room] door {:08X} is {}", a_door->GetFormID(), OpenStateName(a_door));
 			}
