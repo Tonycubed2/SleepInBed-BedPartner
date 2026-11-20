@@ -144,8 +144,13 @@ namespace Settings
 		// A teammate who is not even a member of the vanilla CurrentFollowerFaction is not a real follower
 		// (Vilja before her quest is accepted: the game flags her as teammate, rank -2 = not a member).
 		// Real followers seen: Herika rank 1, Willow 0, Inigo -1; accepting Vilja's quest adds her through DialogueFollower.
+		// Followers with their own follow system, like Serana's (Ashe - Crystal Heart copies it), never join
+		// CurrentFollowerFaction: their script makes them a teammate and adds them to WIFollowerCommentFaction
+		// (000750B8) while they follow. That membership marks them as real followers (Vilja's scripts never use it).
 		static auto* currentFollower = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
-		if (currentFollower && a_actor->IsPlayerTeammate() && a_actor->GetFactionRank(currentFollower, false) < -1) {
+		static auto* followerComment = RE::TESForm::LookupByID<RE::TESFaction>(0x000750B8);
+		if (currentFollower && a_actor->IsPlayerTeammate() && a_actor->GetFactionRank(currentFollower, false) < -1 &&
+			!(followerComment && a_actor->IsInFaction(followerComment))) {
 			return true;
 		}
 		if (g_values.notFollowers.empty()) {
