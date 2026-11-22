@@ -92,7 +92,7 @@ namespace Talk
 			}
 			lists->ForEachHighActor([&](RE::Actor* a_actor) {
 				if (a_actor && !a_actor->IsPlayerRef() && !a_actor->IsDead() && a_actor->Is3DLoaded() &&
-					a_actor->IsPlayerTeammate() && !Settings::IsNotFollower(a_actor) && Lying(a_actor)) {
+					(a_actor->IsPlayerTeammate() || Settings::IsExtraFollower(a_actor)) && !Settings::IsNotFollower(a_actor) && Lying(a_actor)) {
 					Clear(BedOf(a_actor), a_actor);
 				}
 				return RE::BSContainer::ForEachResult::kContinue;

@@ -114,7 +114,7 @@ namespace Weapons
 			if (!a_actor || a_actor->IsDead() || a_actor->IsChild() || !a_actor->Is3DLoaded()) {
 				return false;
 			}
-			return a_actor->IsPlayerRef() || (a_actor->IsPlayerTeammate() && !Settings::IsNotFollower(a_actor));
+			return a_actor->IsPlayerRef() || ((a_actor->IsPlayerTeammate() || Settings::IsExtraFollower(a_actor)) && !Settings::IsNotFollower(a_actor));
 		}
 
 		void TakeOff(RE::Actor* a_actor)

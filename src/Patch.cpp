@@ -350,7 +350,23 @@ namespace Patch
 			RE::TESObjectREFR::LookupByHandle(a_bedHandle, bed);
 			g_playerBed = bed.get();
 			g_inBedtime = g_playerBed != nullptr;
+			// Custom followers with their own follower faction (Sofia) switch the teammate flag off while they sandbox,
+			// and Sleep In Bed only collects teammates: count them as teammates while Sleep In Bed picks who goes to bed.
+			std::vector<RE::Actor*> lifted;
+			if (auto* lists = RE::ProcessLists::GetSingleton()) {
+				for (auto& handle : lists->highActorHandles) {
+					auto actor = handle.get();
+					if (actor && !actor->IsDead() && !actor->IsPlayerTeammate() && Settings::IsExtraFollower(actor.get())) {
+						actor->GetActorRuntimeData().boolBits.set(RE::Actor::BOOL_BITS::kPlayerTeammate);
+						lifted.push_back(actor.get());
+						SKSE::log::info("[partner] {:08X} ({}) is in a follower faction but not a teammate right now: counted as a follower for bedtime", actor->GetFormID(), NameOf(actor.get()));
+					}
+				}
+			}
 			g_origLayFollowersDown(a_bedHandle);
+			for (auto* actor : lifted) {
+				actor->GetActorRuntimeData().boolBits.reset(RE::Actor::BOOL_BITS::kPlayerTeammate);
+			}
 			for (auto* follower : g_followers) {
 				Eyes::Track(follower);
 			}

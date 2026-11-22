@@ -4,6 +4,13 @@
 
 #include <SimpleIni.h>
 
+namespace
+{
+	constexpr auto kDefaultFollowerFactions = "SofiaFollower.esp|0x060480";
+	bool                              g_factionsResolved = false;
+	std::vector<RE::TESFaction*>      g_extraFactions;  // resolved sFollowerFactions
+}
+
 namespace Settings
 {
 	namespace
@@ -57,6 +64,24 @@ namespace Settings
 			}
 		}
 		{
+			// Custom followers with their own follower faction (Sofia: SofiaFollower.esp, SofiaFollowerFaction 060480).
+			std::string list = ini.GetValue("BedPartner", "sFollowerFactions", kDefaultFollowerFactions);
+			std::string entry;
+			for (char c : list + ",") {
+				if (c == ',') {
+					while (!entry.empty() && std::isspace(static_cast<unsigned char>(entry.back()))) {
+						entry.pop_back();
+					}
+					if (!entry.empty()) {
+						loaded.followerFactions.push_back(entry);
+					}
+					entry.clear();
+				} else if (!entry.empty() || !std::isspace(static_cast<unsigned char>(c))) {
+					entry.push_back(c);
+				}
+			}
+		}
+		{
 			std::string list = ini.GetValue("BedPartner", "sNotFollowers", "");
 			std::string name;
 			for (char c : list + ",") {
@@ -75,6 +100,10 @@ namespace Settings
 		}
 		Sanitize(loaded);
 		g_values = loaded;
+		g_factionsResolved = false;
+		for (const auto& entry : g_values.followerFactions) {
+			SKSE::log::info("[settings] follower faction: {}", entry);
+		}
 		SKSE::log::info("[settings] clearRoom={} notFollowers={} keepSlots={:08X} redressDelay={} min unequipWeaponsDressed={} stayInBedToTalk={}", g_values.clearRoom, g_values.notFollowers.size(), g_values.keepSlots, g_values.redressDelay, g_values.unequipWeaponsDressed, g_values.stayInBedToTalk);
 		for (const auto& name : g_values.notFollowers) {
 			SKSE::log::info("[settings] not a follower: {}", name);
@@ -91,6 +120,9 @@ namespace Settings
 		ini.SetBoolValue("Camera", "bThirdPersonInBed", g_values.thirdPersonInBed, "; 1 = while you lie in bed, the camera stays in third person (switched back if anything puts it in first person).");
 		ini.SetBoolValue("Dress", "bRedressPlayer", g_values.redressPlayer, "; 1 = after sleeping, your gear is put back on (Sleep In Bed's normal behavior). 0 = you stay as you are.");
 		ini.SetBoolValue("Dress", "bRedressFollowers", g_values.redressFollowers, "; 1 = after sleeping, followers' gear is put back on (Sleep In Bed's normal behavior). 0 = they stay as they are.");
+		if (!ini.GetValue("BedPartner", "sFollowerFactions")) {
+			ini.SetValue("BedPartner", "sFollowerFactions", kDefaultFollowerFactions, "; Own follower factions of custom followers that are not in the game's follower faction (comma separated, Plugin.esp|0xID).\n; Members count as followers and are sent to bed even while their own scripts switch the teammate flag off (for example while they sandbox).\n; Default: Sofia (SofiaFollower.esp|0x060480).");
+		}
 		if (!ini.GetValue("BedPartner", "sNotFollowers")) {
 			ini.SetValue("BedPartner", "sNotFollowers", "", "; Names (comma separated) of NPCs the game counts as your teammates but who are not your followers.\n; Sleep In Bed ignores them: never sent to bed, never chosen for your bed. Example: sNotFollowers=Vilja");
 		}
@@ -136,9 +168,45 @@ namespace Settings
 		return groups;
 	}
 
+	bool IsExtraFollower(RE::Actor* a_actor)
+	{
+		if (!a_actor) {
+			return false;
+		}
+		if (!g_factionsResolved) {
+			g_factionsResolved = true;
+			g_extraFactions.clear();
+			auto* data = RE::TESDataHandler::GetSingleton();
+			for (const auto& entry : g_values.followerFactions) {
+				const auto bar = entry.find('|');
+				if (!data || bar == std::string::npos) {
+					SKSE::log::warn("[settings] follower faction \"{}\": not Plugin.esp|0xID", entry);
+					continue;
+				}
+				const auto plugin = entry.substr(0, bar);
+				const auto id = static_cast<RE::FormID>(std::strtoul(entry.c_str() + bar + 1, nullptr, 16)) & 0x00FFFFFF;
+				if (auto* faction = data->LookupForm<RE::TESFaction>(id, plugin)) {
+					g_extraFactions.push_back(faction);
+					SKSE::log::info("[settings] follower faction {:08X} ({}) from {}", faction->GetFormID(), faction->GetName(), plugin);
+				} else {
+					SKSE::log::info("[settings] follower faction {}: not loaded (mod not installed)", entry);
+				}
+			}
+		}
+		for (auto* faction : g_extraFactions) {
+			if (a_actor->IsInFaction(faction)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool IsNotFollower(RE::Actor* a_actor)
 	{
 		if (!a_actor) {
+			return false;
+		}
+		if (IsExtraFollower(a_actor)) {
 			return false;
 		}
 		// A teammate who is not even a member of the vanilla CurrentFollowerFaction is not a real follower

@@ -215,7 +215,7 @@ namespace Door
 			tes->ForEachReferenceInRange(a_bed, kRoomRadius, [&](RE::TESObjectREFR* a_ref) {
 				auto* actor = a_ref ? a_ref->As<RE::Actor>() : nullptr;
 				if (!actor || actor->IsPlayerRef() || actor->IsDead() || actor->IsDisabled() || !actor->Is3DLoaded() ||
-					(actor->IsPlayerTeammate() && !Settings::IsNotFollower(actor)) || actor->IsInCombat() || g_state.excluded.contains(actor->GetFormID()) || !InRoom(actor)) {
+					((actor->IsPlayerTeammate() || Settings::IsExtraFollower(actor)) && !Settings::IsNotFollower(actor)) || actor->IsInCombat() || g_state.excluded.contains(actor->GetFormID()) || !InRoom(actor)) {
 					return RE::BSContainer::ForEachResult::kContinue;
 				}
 				for (auto& handle : g_state.leavers) {

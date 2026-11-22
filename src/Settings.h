@@ -23,6 +23,7 @@ namespace Settings
 		std::int32_t redressDelay{ 0 };         // game minutes to stay in sleepwear before the gear goes back on (0 = at once)
 		bool         clearRoom{ false };        // NPCs leave the room, a follower closes the door
 		std::vector<std::string> notFollowers;  // names Sleep In Bed must not treat as followers (lower case)
+		std::vector<std::string> followerFactions;  // "Plugin.esp|0xID": own follower factions of custom followers
 		std::uint32_t keepSlots{ 0 };           // sleepwear mode: biped slots kept on (bit n = slot 30+n)
 		bool         unequipWeaponsDressed{ false };
 		bool         stayInBedToTalk{ false };
@@ -41,6 +42,8 @@ namespace Settings
 
 	// True when this actor's name is on the "not a follower" list.
 	bool IsNotFollower(RE::Actor* a_actor);
+	// A member of one of the [BedPartner] sFollowerFactions (custom followers with their own follower faction).
+	bool IsExtraFollower(RE::Actor* a_actor);
 
 	// Slot groups shown in the menu: name and biped slot mask (bit n = slot 30+n).
 	struct SlotGroup
