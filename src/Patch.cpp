@@ -746,8 +746,11 @@ namespace Patch
 				SKSE::log::info("[partner] {:08X} ({}) is a teammate but not a follower: not sent to bed", a_actor->GetFormID(), NameOf(a_actor));
 				return;
 			}
-			if (g_inBedtime && a_bed && a_bed == g_playerBed && g_followers.contains(a_actor) && !g_assignedPartner) {
+			// Whoever Sleep In Bed sends to the player's bed is the bed partner: a follower, or the spouse
+			// (Sleep In Bed collects the spouse apart from the followers and gives her the player's bed first).
+			if (g_inBedtime && a_actor && a_bed && a_bed == g_playerBed && !g_assignedPartner) {
 				g_assignedPartner = a_actor;
+				SKSE::log::info("[partner] {:08X} ({}) is sent to the player's bed ({})", a_actor->GetFormID(), NameOf(a_actor), a_role ? a_role : "?");
 			}
 			if (g_inBedtime && a_actor && a_bed) {
 				g_assignedList.push_back({ a_actor, a_bed });

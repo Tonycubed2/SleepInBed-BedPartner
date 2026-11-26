@@ -320,6 +320,18 @@ namespace Door
 			auto* closer = closerPtr.get();
 			auto  markerPtr = g_state.insideMarker.get();
 			auto* marker = markerPtr.get();
+			// version 3: a partner who is already lying down (or getting into bed) is not pulled out of bed to close the
+			// door again (seen 2026-11-23: Herika lying down, the door reopened by Brenuin, sent to close it: out of bed);
+			// the patch shuts the door itself instead
+			if (closer) {
+				const auto st = closer->AsActorState()->GetSitSleepState();
+				if (st == RE::SIT_SLEEP_STATE::kWantToSleep || st == RE::SIT_SLEEP_STATE::kWaitingForSleepAnim || st == RE::SIT_SLEEP_STATE::kIsSleeping) {
+					SKSE::log::info("[room] {:08X} ({}) is already in bed: door {:08X} closed by the patch instead", closer->GetFormID(), NameOf(closer), a_door->GetFormID());
+					ActivateDoor(a_door, nullptr);
+					SetPhase(Phase::kClosing);
+					return;
+				}
+			}
 			if (closer && marker && !closer->IsDead() && closer->Is3DLoaded()) {
 				SetDuty(closer);
 				Manage(closer, true);

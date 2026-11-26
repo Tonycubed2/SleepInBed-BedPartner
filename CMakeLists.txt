@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(SleepInBedPartner VERSION 2 LANGUAGES CXX)
+project(SleepInBedPartner VERSION 3 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
